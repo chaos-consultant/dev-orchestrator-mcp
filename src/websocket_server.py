@@ -257,6 +257,10 @@ async def run_websocket_server():
     """Run the WebSocket server standalone."""
     config = get_config()
     server = WebSocketServer(config.host, config.websocket_port)
+
+    # Load persisted state
+    server.state_manager.load_state()
+
     await server.start()
     
     # Keep running

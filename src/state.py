@@ -196,6 +196,7 @@ class StateManager:
         """Add a saved command and broadcast update."""
         async with self._lock:
             self.state.saved_commands.append(command_data)
+        self.save_state()
         await self.broadcast("saved_commands", self.state.saved_commands)
 
     async def remove_saved_command(self, command_id: str):
@@ -205,6 +206,7 @@ class StateManager:
                 c for c in self.state.saved_commands
                 if c.get("id") != command_id
             ]
+        self.save_state()
         await self.broadcast("saved_commands", self.state.saved_commands)
 
     def save_state(self):

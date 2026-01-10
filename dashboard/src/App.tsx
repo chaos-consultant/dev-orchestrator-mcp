@@ -326,7 +326,8 @@ const App: React.FC = () => {
                 boxShadow: 'none',
                 borderBottom: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
                 backdropFilter: 'blur(20px)',
-                backgroundColor: darkMode ? 'rgba(28, 28, 30, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+                backgroundColor: darkMode ? 'rgba(28, 28, 30, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                color: darkMode ? '#FFFFFF' : '#1C1C1E',
               },
             },
           },
@@ -1204,8 +1205,8 @@ const App: React.FC = () => {
       <Box sx={{ flexGrow: 1, minHeight: '100vh' }}>
         <AppBar position="static">
           <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              🔧 Dev Orchestrator
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+              Dev Orchestrator
             </Typography>
             {renderConnectionStatus()}
           </Toolbar>

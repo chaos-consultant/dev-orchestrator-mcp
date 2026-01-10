@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import Optional
 import websockets
-from websockets.server import WebSocketServerProtocol
+from websockets import serve, ConnectionClosed
 
 from .state import get_state_manager
 from .config import get_config
@@ -12,18 +12,18 @@ from .config import get_config
 
 class WebSocketServer:
     """WebSocket server for dashboard communication."""
-    
+
     def __init__(self, host: str = "127.0.0.1", port: int = 8766):
         self.host = host
         self.port = port
         self.state_manager = get_state_manager()
         self._server: Optional[websockets.WebSocketServer] = None
-    
-    async def handler(self, websocket: WebSocketServerProtocol, path: str):
+
+    async def handler(self, websocket):
         """Handle WebSocket connections."""
         await self.state_manager.add_client(websocket)
         await self.state_manager.log("INFO", f"Dashboard client connected from {websocket.remote_address}")
-        
+
         try:
             async for message in websocket:
                 try:
@@ -31,13 +31,13 @@ class WebSocketServer:
                     await self.handle_message(websocket, data)
                 except json.JSONDecodeError:
                     await websocket.send(json.dumps({"error": "Invalid JSON"}))
-        except websockets.ConnectionClosed:
+        except ConnectionClosed:
             pass
         finally:
             self.state_manager.remove_client(websocket)
             await self.state_manager.log("INFO", "Dashboard client disconnected")
-    
-    async def handle_message(self, websocket: WebSocketServerProtocol, data: dict):
+
+    async def handle_message(self, websocket, data: dict):
         """Handle incoming WebSocket messages."""
         msg_type = data.get("type")
         
@@ -67,7 +67,7 @@ class WebSocketServer:
     
     async def start(self):
         """Start the WebSocket server."""
-        self._server = await websockets.serve(
+        self._server = await serve(
             self.handler,
             self.host,
             self.port

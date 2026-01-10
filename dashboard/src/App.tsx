@@ -61,6 +61,9 @@ import {
   AccountTree as AccountTreeIcon,
   CloudUpload as CloudUploadIcon,
   CloudDownload as CloudDownloadIcon,
+  BookmarkAdd as BookmarkAddIcon,
+  Bookmark as BookmarkIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 // Types
@@ -136,6 +139,15 @@ interface WorkspaceStatus {
   repos: RepoInfo[];
 }
 
+interface SavedCommand {
+  id: string;
+  name: string;
+  command: string;
+  cwd?: string;
+  description?: string;
+  created_at: string;
+}
+
 interface AppState {
   current_project?: ProjectProfile;
   services: Record<string, Service>;
@@ -143,6 +155,7 @@ interface AppState {
   pending_approvals: PendingApproval[];
   logs: LogEntry[];
   workspace?: WorkspaceStatus;
+  saved_commands?: SavedCommand[];
 }
 
 const WS_URL = 'ws://127.0.0.1:8766';
@@ -175,6 +188,10 @@ const App: React.FC = () => {
   const [useNlp, setUseNlp] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [commandToSave, setCommandToSave] = useState<CommandHistory | null>(null);
+  const [savedCommandName, setSavedCommandName] = useState('');
+  const [savedCommandDesc, setSavedCommandDesc] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -263,6 +280,16 @@ const App: React.FC = () => {
           prev ? { ...prev, workspace: data.data as WorkspaceStatus } : null
         );
         break;
+      case 'saved_commands':
+        setState((prev) =>
+          prev ? { ...prev, saved_commands: data.data as SavedCommand[] } : null
+        );
+        break;
+      case 'logs_cleared':
+        setState((prev) =>
+          prev ? { ...prev, logs: [] } : null
+        );
+        break;
     }
   }, []);
 
@@ -347,6 +374,53 @@ const App: React.FC = () => {
         JSON.stringify({
           type: 'switch_project',
           repo_name: repoName,
+        })
+      );
+    }
+  };
+
+  const clearLogs = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'clear_logs',
+        })
+      );
+    }
+  };
+
+  const saveCommand = (cmd: CommandHistory, name: string, description?: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'save_command',
+          command: cmd.command,
+          cwd: cmd.cwd,
+          name,
+          description,
+        })
+      );
+    }
+  };
+
+  const deleteSavedCommand = (id: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'delete_saved_command',
+          id,
+        })
+      );
+    }
+  };
+
+  const executeSavedCommand = (cmd: SavedCommand) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'run_command',
+          command: cmd.command,
+          cwd: cmd.cwd,
         })
       );
     }
@@ -592,9 +666,7 @@ const App: React.FC = () => {
               {recent.map((cmd, idx) => (
                 <React.Fragment key={idx}>
                   <ListItem
-                    button
-                    onClick={() => setSelectedCommand(cmd)}
-                    sx={{ cursor: 'pointer' }}
+                    sx={{ pr: 1 }}
                   >
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       {cmd.status === 'completed' ? (
@@ -608,8 +680,8 @@ const App: React.FC = () => {
                     <ListItemText
                       primary={
                         <Typography variant="body2" fontFamily="monospace" fontSize="0.85rem">
-                          {cmd.command.substring(0, 50)}
-                          {cmd.command.length > 50 ? '...' : ''}
+                          {cmd.command.substring(0, 40)}
+                          {cmd.command.length > 40 ? '...' : ''}
                         </Typography>
                       }
                     />
@@ -623,7 +695,19 @@ const App: React.FC = () => {
                           ? 'error'
                           : 'default'
                       }
+                      sx={{ mr: 1 }}
                     />
+                    <Tooltip title="Save command">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setCommandToSave(cmd);
+                          setSaveDialogOpen(true);
+                        }}
+                      >
+                        <BookmarkAddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </ListItem>
                   {idx < recent.length - 1 && <Divider />}
                 </React.Fragment>
@@ -647,19 +731,29 @@ const App: React.FC = () => {
         <CardHeader
           title="Logs"
           action={
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Filter</InputLabel>
-              <Select
-                value={logFilter}
-                label="Filter"
-                onChange={(e) => setLogFilter(e.target.value)}
+            <Stack direction="row" spacing={1}>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Filter</InputLabel>
+                <Select
+                  value={logFilter}
+                  label="Filter"
+                  onChange={(e) => setLogFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="INFO">Info</MenuItem>
+                  <MenuItem value="WARN">Warning</MenuItem>
+                  <MenuItem value="ERROR">Error</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={clearLogs}
+                disabled={logs.length === 0}
               >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="INFO">Info</MenuItem>
-                <MenuItem value="WARN">Warning</MenuItem>
-                <MenuItem value="ERROR">Error</MenuItem>
-              </Select>
-            </FormControl>
+                Clear
+              </Button>
+            </Stack>
           }
         />
         <CardContent sx={{ maxHeight: '400px', overflow: 'auto', p: 0 }}>
@@ -832,6 +926,95 @@ const App: React.FC = () => {
     );
   };
 
+  const renderSavedCommands = () => {
+    const savedCommands = state?.saved_commands || [];
+
+    return (
+      <Card>
+        <CardHeader
+          avatar={<BookmarkIcon />}
+          title={`Saved Commands (${savedCommands.length})`}
+        />
+        <CardContent>
+          {savedCommands.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <BookmarkIcon sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                No Saved Commands
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Save frequently used commands from history
+              </Typography>
+            </Box>
+          ) : (
+            <List dense>
+              {savedCommands.map((cmd, idx) => (
+                <React.Fragment key={cmd.id}>
+                  <ListItem sx={{ pr: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <BookmarkIcon color="primary" fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontWeight="bold">
+                          {cmd.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box>
+                          <Typography variant="caption" fontFamily="monospace" display="block">
+                            {cmd.command.substring(0, 50)}
+                            {cmd.command.length > 50 ? '...' : ''}
+                          </Typography>
+                          {cmd.description && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {cmd.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
+                    <Stack direction="row" spacing={1}>
+                      <Tooltip title="Execute command">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => executeSavedCommand(cmd)}
+                        >
+                          <PlayArrowIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => deleteSavedCommand(cmd.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </ListItem>
+                  {idx < savedCommands.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const handleSaveCommand = () => {
+    if (commandToSave && savedCommandName.trim()) {
+      saveCommand(commandToSave, savedCommandName.trim(), savedCommandDesc.trim() || undefined);
+      setSaveDialogOpen(false);
+      setCommandToSave(null);
+      setSavedCommandName('');
+      setSavedCommandDesc('');
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -916,6 +1099,9 @@ const App: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={6} lg={4}>
             {renderCommandHistory()}
+          </Grid>
+          <Grid item xs={12} md={6}>
+            {renderSavedCommands()}
           </Grid>
           <Grid item xs={12}>
             {renderWorkspacePanel()}
@@ -1025,6 +1211,70 @@ const App: React.FC = () => {
           </DialogActions>
         </Dialog>
       )}
+
+      {/* Save Command Dialog */}
+      <Dialog
+        open={saveDialogOpen}
+        onClose={() => {
+          setSaveDialogOpen(false);
+          setCommandToSave(null);
+          setSavedCommandName('');
+          setSavedCommandDesc('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Save Command</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            {commandToSave && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Command
+                </Typography>
+                <CodeBox>{commandToSave.command}</CodeBox>
+              </Box>
+            )}
+            <TextField
+              label="Name"
+              value={savedCommandName}
+              onChange={(e) => setSavedCommandName(e.target.value)}
+              fullWidth
+              required
+              placeholder="e.g., 'Git status', 'Run tests'"
+              autoFocus
+            />
+            <TextField
+              label="Description (optional)"
+              value={savedCommandDesc}
+              onChange={(e) => setSavedCommandDesc(e.target.value)}
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Brief description of what this command does"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setSaveDialogOpen(false);
+              setCommandToSave(null);
+              setSavedCommandName('');
+              setSavedCommandDesc('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveCommand}
+            variant="contained"
+            disabled={!savedCommandName.trim()}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Help/Documentation Dialog */}
       <Dialog

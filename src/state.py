@@ -34,6 +34,7 @@ class AppState:
     pending_approvals: list[dict] = field(default_factory=list)
     logs: list[dict] = field(default_factory=list)
     workspace: Optional[dict] = None
+    saved_commands: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convert state to dictionary for JSON serialization."""
@@ -58,6 +59,7 @@ class AppState:
         }
         if self.workspace:
             result["workspace"] = self.workspace
+        result["saved_commands"] = self.saved_commands
         return result
 
 
@@ -183,7 +185,28 @@ class StateManager:
             if len(self.state.logs) > 500:
                 self.state.logs = self.state.logs[-500:]
         await self.broadcast("log", entry)
-    
+
+    async def clear_logs(self):
+        """Clear all logs and broadcast update."""
+        async with self._lock:
+            self.state.logs = []
+        await self.broadcast("logs_cleared", {})
+
+    async def add_saved_command(self, command_data: dict):
+        """Add a saved command and broadcast update."""
+        async with self._lock:
+            self.state.saved_commands.append(command_data)
+        await self.broadcast("saved_commands", self.state.saved_commands)
+
+    async def remove_saved_command(self, command_id: str):
+        """Remove a saved command and broadcast update."""
+        async with self._lock:
+            self.state.saved_commands = [
+                c for c in self.state.saved_commands
+                if c.get("id") != command_id
+            ]
+        await self.broadcast("saved_commands", self.state.saved_commands)
+
     def save_state(self):
         """Save state to disk."""
         config = get_config()
@@ -200,6 +223,7 @@ class StateManager:
                     data = json.load(f)
                     self.state.command_history = data.get("command_history", [])
                     self.state.logs = data.get("logs", [])
+                    self.state.saved_commands = data.get("saved_commands", [])
             except Exception:
                 pass
 

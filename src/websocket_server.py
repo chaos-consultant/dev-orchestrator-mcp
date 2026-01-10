@@ -197,6 +197,43 @@ class WebSocketServer:
                         "error": str(e)
                     }))
 
+        elif msg_type == "clear_logs":
+            await self.state_manager.clear_logs()
+            await websocket.send(json.dumps({"type": "logs_cleared", "success": True}))
+
+        elif msg_type == "save_command":
+            command = data.get("command")
+            cwd = data.get("cwd", ".")
+            name = data.get("name")
+            description = data.get("description")
+
+            if command and name:
+                import uuid
+                command_data = {
+                    "id": str(uuid.uuid4()),
+                    "name": name,
+                    "command": command,
+                    "cwd": cwd,
+                    "description": description,
+                    "created_at": datetime.now().isoformat()
+                }
+                await self.state_manager.add_saved_command(command_data)
+                await websocket.send(json.dumps({
+                    "type": "command_saved",
+                    "success": True,
+                    "command": command_data
+                }))
+
+        elif msg_type == "delete_saved_command":
+            command_id = data.get("id")
+            if command_id:
+                await self.state_manager.remove_saved_command(command_id)
+                await websocket.send(json.dumps({
+                    "type": "command_deleted",
+                    "success": True,
+                    "id": command_id
+                }))
+
         elif msg_type == "ping":
             await websocket.send(json.dumps({"type": "pong"}))
     

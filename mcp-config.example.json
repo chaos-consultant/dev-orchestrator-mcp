@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "dev-orchestrator": {
+      "command": "${HOME}/repos/dev-orchestrator-mcp/.venv/bin/python",
+      "args": ["-m", "src.server"],
+      "cwd": "${HOME}/repos/dev-orchestrator-mcp",
+      "env": {
+        "PYTHONPATH": "${HOME}/repos/dev-orchestrator-mcp"
+      }
+    }
+  }
+}

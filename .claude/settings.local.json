@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsof:*)",
+      "Bash(tree:*)",
+      "Bash(curl:*)",
+      "Bash(kill:*)",
+      "Bash(./venv/bin/pip install -e .)",
+      "Bash(timeout 5 ./venv/bin/python:*)"
+    ]
+  }
+}

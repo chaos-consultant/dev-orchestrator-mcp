@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Material-UI dashboard with enhanced features:
+  - Manual command input field with keyboard shortcut (Enter to execute)
+  - Dark/light mode toggle with persistent theme
+  - Log filtering by level (All, Info, Warning, Error)
+  - Command history with clickable items for detailed view
+  - Reconnection indicator showing attempt count
+  - Command detail dialog displaying full information
+
+### Changed
+- Converted dashboard from PatternFly to Material-UI
+- Updated connection status to show reconnection attempts
+- Improved command history with interactive list items
+- Enhanced log display with filtering capabilities
+
 ## [0.1.0] - 2026-01-10
 
 ### Added

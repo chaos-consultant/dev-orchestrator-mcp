@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -24,8 +24,18 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  TextField,
+  IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Tooltip,
   styled,
   alpha,
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -37,6 +47,9 @@ import {
   Stop as StopIcon,
   Sync as SyncIcon,
   Error as ErrorIcon,
+  Send as SendIcon,
+  Brightness4 as Brightness4Icon,
+  Brightness7 as Brightness7Icon,
 } from '@mui/icons-material';
 
 // Types
@@ -120,8 +133,24 @@ const App: React.FC = () => {
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState<AppState | null>(null);
   const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
+  const [commandInput, setCommandInput] = useState('');
+  const [darkMode, setDarkMode] = useState(false);
+  const [logFilter, setLogFilter] = useState<string>('all');
+  const [selectedCommand, setSelectedCommand] = useState<CommandHistory | null>(null);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+
+  // Create theme based on dark mode
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: darkMode ? 'dark' : 'light',
+        },
+      }),
+    [darkMode]
+  );
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -130,11 +159,13 @@ const App: React.FC = () => {
 
     ws.onopen = () => {
       setConnected(true);
+      setReconnectAttempts(0);
       ws.send(JSON.stringify({ type: 'get_state' }));
     };
 
     ws.onclose = () => {
       setConnected(false);
+      setReconnectAttempts(prev => prev + 1);
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000);
     };
 
@@ -249,6 +280,27 @@ const App: React.FC = () => {
     }
   };
 
+  const sendCommand = () => {
+    if (!commandInput.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'run_command',
+        command: commandInput.trim(),
+      })
+    );
+    setCommandInput('');
+  };
+
+  const handleCommandKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendCommand();
+    }
+  };
+
   useEffect(() => {
     connect();
     return () => {
@@ -272,13 +324,18 @@ const App: React.FC = () => {
         <>
           <Chip
             icon={<CancelIcon />}
-            label="Disconnected"
+            label={reconnectAttempts > 0 ? `Reconnecting (${reconnectAttempts})` : "Disconnected"}
             color="error"
             size="small"
           />
           <CircularProgress size={16} />
         </>
       )}
+      <Tooltip title="Toggle dark mode">
+        <IconButton size="small" onClick={() => setDarkMode(!darkMode)} color="inherit">
+          {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 
@@ -462,7 +519,11 @@ const App: React.FC = () => {
             <List dense>
               {recent.map((cmd, idx) => (
                 <React.Fragment key={idx}>
-                  <ListItem>
+                  <ListItem
+                    button
+                    onClick={() => setSelectedCommand(cmd)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       {cmd.status === 'completed' ? (
                         <CheckCircleIcon color="success" fontSize="small" />
@@ -504,35 +565,63 @@ const App: React.FC = () => {
 
   const renderLogs = () => {
     const logs = state?.logs || [];
-    const recent = logs.slice(-50).reverse();
+    const filtered = logs.filter(log =>
+      logFilter === 'all' || log.level === logFilter
+    );
+    const recent = filtered.slice(-50).reverse();
 
     return (
       <Card>
-        <CardHeader title="Logs" />
+        <CardHeader
+          title="Logs"
+          action={
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Filter</InputLabel>
+              <Select
+                value={logFilter}
+                label="Filter"
+                onChange={(e) => setLogFilter(e.target.value)}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="INFO">Info</MenuItem>
+                <MenuItem value="WARN">Warning</MenuItem>
+                <MenuItem value="ERROR">Error</MenuItem>
+              </Select>
+            </FormControl>
+          }
+        />
         <CardContent sx={{ maxHeight: '400px', overflow: 'auto', p: 0 }}>
           <Stack spacing={0.5} sx={{ p: 2 }}>
-            {recent.map((log, idx) => (
-              <LogEntryPaper key={idx} variant="outlined">
-                <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                  {new Date(log.timestamp).toLocaleTimeString()}
+            {recent.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No logs matching filter
                 </Typography>
-                <Chip
-                  label={log.level}
-                  size="small"
-                  color={
-                    log.level === 'ERROR'
-                      ? 'error'
-                      : log.level === 'WARN'
-                      ? 'warning'
-                      : 'default'
-                  }
-                  sx={{ mr: 1 }}
-                />
-                <Typography component="span" variant="body2">
-                  {log.message}
-                </Typography>
-              </LogEntryPaper>
-            ))}
+              </Box>
+            ) : (
+              recent.map((log, idx) => (
+                <LogEntryPaper key={idx} variant="outlined">
+                  <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </Typography>
+                  <Chip
+                    label={log.level}
+                    size="small"
+                    color={
+                      log.level === 'ERROR'
+                        ? 'error'
+                        : log.level === 'WARN'
+                        ? 'warning'
+                        : 'default'
+                    }
+                    sx={{ mr: 1 }}
+                  />
+                  <Typography component="span" variant="body2">
+                    {log.message}
+                  </Typography>
+                </LogEntryPaper>
+              ))
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -540,17 +629,47 @@ const App: React.FC = () => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            🔧 Dev Orchestrator
-          </Typography>
-          {renderConnectionStatus()}
-        </Toolbar>
-      </AppBar>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ flexGrow: 1, minHeight: '100vh' }}>
+        <AppBar position="static">
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              🔧 Dev Orchestrator
+            </Typography>
+            {renderConnectionStatus()}
+          </Toolbar>
+        </AppBar>
 
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        {/* Manual Command Input */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Enter command to execute..."
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                onKeyPress={handleCommandKeyPress}
+                disabled={!connected}
+                InputProps={{
+                  startAdornment: <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />,
+                }}
+              />
+              <Button
+                variant="contained"
+                onClick={sendCommand}
+                disabled={!connected || !commandInput.trim()}
+                endIcon={<SendIcon />}
+              >
+                Run
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+
         {renderApprovalsCard()}
 
         <Grid container spacing={3}>
@@ -614,7 +733,62 @@ const App: React.FC = () => {
           </DialogActions>
         </Dialog>
       )}
-    </Box>
+
+      {selectedCommand && (
+        <Dialog
+          open={true}
+          onClose={() => setSelectedCommand(null)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Command Details</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Command
+                </Typography>
+                <CodeBox>{selectedCommand.command}</CodeBox>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Working Directory
+                </Typography>
+                <CodeBox>{selectedCommand.cwd}</CodeBox>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Status
+                </Typography>
+                <Chip
+                  label={selectedCommand.status}
+                  color={
+                    selectedCommand.status === 'completed'
+                      ? 'success'
+                      : selectedCommand.status === 'failed'
+                      ? 'error'
+                      : 'default'
+                  }
+                />
+                {selectedCommand.exit_code !== undefined && (
+                  <Chip label={`Exit Code: ${selectedCommand.exit_code}`} sx={{ ml: 1 }} />
+                )}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Timestamp
+                </Typography>
+                <Typography variant="body2">{new Date(selectedCommand.timestamp).toLocaleString()}</Typography>
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSelectedCommand(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      )}
+      </Box>
+    </ThemeProvider>
   );
 };
 

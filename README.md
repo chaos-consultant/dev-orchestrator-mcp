@@ -12,7 +12,12 @@ A Mac dev environment orchestration MCP server that enables Claude to run and te
 - **Virtual Environment Management**: Auto-activates correct venv per project
 - **Git Profile Validation**: Ensures correct git user per project directory
 - **Multi-Interface Visibility**:
-  - Web Dashboard (PatternFly React)
+  - Web Dashboard (Material-UI React)
+    - Manual command execution
+    - Dark/light mode toggle
+    - Log filtering by level
+    - Command history with detail view
+    - Real-time reconnection indicator
   - macOS Menubar App
   - Terminal Log Tailing
   - macOS Notifications

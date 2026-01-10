@@ -21,6 +21,7 @@ from .detector import ProjectDetector
 from .executor import ShellExecutor, PendingApproval, CommandStatus
 from .notifications import get_notifier
 from .state import get_state_manager, ServiceInfo
+from .workspace_manager import WorkspaceManager
 
 
 # Initialize components
@@ -29,6 +30,7 @@ state_manager = get_state_manager()
 notifier = get_notifier()
 executor: Optional[ShellExecutor] = None
 current_detector: Optional[ProjectDetector] = None
+workspace_manager: Optional[WorkspaceManager] = None
 
 # Pending approval futures
 approval_futures: dict[str, asyncio.Future] = {}
@@ -248,6 +250,50 @@ async def list_tools():
                 "properties": {}
             }
         ),
+        Tool(
+            name="list_workspace_repos",
+            description="Discover all git repositories in the workspace with their current status",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace_root": {
+                        "type": "string",
+                        "description": "Root directory to search (defaults to parent of current directory)"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Maximum directory depth to search (default: 2)"
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="switch_project",
+            description="Switch to a different project in the workspace by name",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "Name of the repository to switch to"
+                    }
+                },
+                "required": ["repo_name"]
+            }
+        ),
+        Tool(
+            name="workspace_status",
+            description="Get summary status of all repositories in workspace (uncommitted changes, ahead/behind)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace_root": {
+                        "type": "string",
+                        "description": "Root directory to check (defaults to current workspace)"
+                    }
+                }
+            }
+        ),
     ]
 
 
@@ -442,7 +488,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "activate_venv":
             if current_detector is None:
                 return [TextContent(type="text", text='{"error": "No project detected"}')]
-            
+
             profile = current_detector.detect()
             if profile.venv_path:
                 activate_cmd = f"source {profile.venv_path}/bin/activate"
@@ -450,9 +496,81 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     "venv_path": str(profile.venv_path),
                     "activate_command": activate_cmd
                 }, indent=2))]
-            
+
             return [TextContent(type="text", text='{"error": "No virtual environment found"}')]
-        
+
+        elif name == "list_workspace_repos":
+            global workspace_manager
+
+            workspace_root = arguments.get("workspace_root")
+            max_depth = arguments.get("max_depth", 2)
+
+            if workspace_manager is None or (workspace_root and workspace_root != str(workspace_manager.workspace_root)):
+                workspace_manager = WorkspaceManager(workspace_root)
+
+            repos = workspace_manager.discover_repos(max_depth=max_depth)
+
+            await state_manager.log("INFO", f"Discovered {len(repos)} repositories in workspace")
+
+            return [TextContent(type="text", text=json.dumps({
+                "workspace_root": str(workspace_manager.workspace_root),
+                "repo_count": len(repos),
+                "repos": [repo.to_dict() for repo in repos]
+            }, indent=2))]
+
+        elif name == "switch_project":
+            global workspace_manager, current_detector
+
+            repo_name = arguments["repo_name"]
+
+            if workspace_manager is None:
+                workspace_manager = WorkspaceManager()
+
+            repo = workspace_manager.find_repo_by_name(repo_name)
+
+            if repo is None:
+                available = [r.name for r in workspace_manager.discover_repos()]
+                return [TextContent(type="text", text=json.dumps({
+                    "error": f"Repository '{repo_name}' not found",
+                    "available_repos": available
+                }, indent=2))]
+
+            # Change to the repo directory
+            os.chdir(repo.path)
+
+            # Re-detect project
+            current_detector = ProjectDetector(repo.path)
+            profile = current_detector.detect()
+            await state_manager.set_project(profile)
+
+            await state_manager.log("INFO", f"Switched to project: {repo_name}")
+            await notifier.notify_project_detected(profile.name, profile.project_type)
+
+            return [TextContent(type="text", text=json.dumps({
+                "switched_to": repo.name,
+                "path": repo.path,
+                "branch": repo.branch,
+                "project": profile.name,
+                "types": profile.project_type
+            }, indent=2))]
+
+        elif name == "workspace_status":
+            global workspace_manager
+
+            workspace_root = arguments.get("workspace_root")
+
+            if workspace_manager is None or (workspace_root and workspace_root != str(workspace_manager.workspace_root)):
+                workspace_manager = WorkspaceManager(workspace_root)
+
+            summary = workspace_manager.get_workspace_summary()
+
+            await state_manager.log("INFO",
+                f"Workspace status: {summary['total_repos']} repos, "
+                f"{summary['repos_with_changes']} with changes"
+            )
+
+            return [TextContent(type="text", text=json.dumps(summary, indent=2))]
+
         else:
             return [TextContent(type="text", text=f'{{"error": "Unknown tool: {name}"}}')]
     

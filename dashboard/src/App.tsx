@@ -160,20 +160,32 @@ interface AppState {
 
 const WS_URL = 'ws://127.0.0.1:8766';
 
-// Styled components
+// Styled components with macOS aesthetic
 const LogEntryPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(1),
   fontSize: '0.875rem',
-  fontFamily: 'monospace',
+  fontFamily: "'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace",
+  borderRadius: 8,
+  border: theme.palette.mode === 'dark'
+    ? '1px solid rgba(255, 255, 255, 0.08)'
+    : '1px solid rgba(0, 0, 0, 0.06)',
+  backgroundColor: theme.palette.mode === 'dark'
+    ? 'rgba(255, 255, 255, 0.03)'
+    : 'rgba(0, 0, 0, 0.02)',
 }));
 
 const CodeBox = styled(Box)(({ theme }) => ({
-  backgroundColor: alpha(theme.palette.grey[900], 0.05),
+  backgroundColor: theme.palette.mode === 'dark'
+    ? 'rgba(255, 255, 255, 0.05)'
+    : 'rgba(0, 0, 0, 0.04)',
   padding: theme.spacing(1.5),
-  borderRadius: theme.shape.borderRadius,
-  fontFamily: 'monospace',
+  borderRadius: 8,
+  fontFamily: "'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace",
   fontSize: '0.875rem',
   overflowX: 'auto',
+  border: theme.palette.mode === 'dark'
+    ? '1px solid rgba(255, 255, 255, 0.08)'
+    : '1px solid rgba(0, 0, 0, 0.06)',
 }));
 
 const App: React.FC = () => {
@@ -195,12 +207,183 @@ const App: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
-  // Create theme based on dark mode
+  // Create macOS-style theme
   const theme = useMemo(
     () =>
       createTheme({
         palette: {
           mode: darkMode ? 'dark' : 'light',
+          primary: {
+            main: darkMode ? '#0A84FF' : '#007AFF',
+            light: darkMode ? '#409CFF' : '#4DA2FF',
+            dark: darkMode ? '#0066CC' : '#0051D5',
+          },
+          secondary: {
+            main: darkMode ? '#FF453A' : '#FF3B30',
+            light: darkMode ? '#FF6961' : '#FF6259',
+            dark: darkMode ? '#CC2E24' : '#CC2920',
+          },
+          success: {
+            main: darkMode ? '#32D74B' : '#34C759',
+            light: darkMode ? '#5EDF6C' : '#5DD87A',
+            dark: darkMode ? '#28AC3C' : '#2A9E47',
+          },
+          warning: {
+            main: darkMode ? '#FF9F0A' : '#FF9500',
+            light: darkMode ? '#FFB23B' : '#FFAC33',
+            dark: darkMode ? '#CC7F08' : '#CC7700',
+          },
+          error: {
+            main: darkMode ? '#FF453A' : '#FF3B30',
+            light: darkMode ? '#FF6961' : '#FF6259',
+            dark: darkMode ? '#CC2E24' : '#CC2920',
+          },
+          background: {
+            default: darkMode ? '#1C1C1E' : '#F2F2F7',
+            paper: darkMode ? '#2C2C2E' : '#FFFFFF',
+          },
+          divider: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+        },
+        typography: {
+          fontFamily: [
+            '-apple-system',
+            'BlinkMacSystemFont',
+            '"SF Pro Display"',
+            '"SF Pro Text"',
+            '"Helvetica Neue"',
+            'Arial',
+            'sans-serif',
+          ].join(','),
+          h6: {
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+          },
+          subtitle1: {
+            fontWeight: 500,
+            letterSpacing: '-0.005em',
+          },
+          body1: {
+            letterSpacing: '-0.005em',
+          },
+          body2: {
+            letterSpacing: '-0.005em',
+          },
+          button: {
+            textTransform: 'none',
+            fontWeight: 500,
+            letterSpacing: '-0.005em',
+          },
+        },
+        shape: {
+          borderRadius: 12,
+        },
+        components: {
+          MuiCard: {
+            styleOverrides: {
+              root: {
+                backgroundImage: 'none',
+                boxShadow: darkMode
+                  ? '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)'
+                  : '0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06)',
+                border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.06)',
+              },
+            },
+          },
+          MuiButton: {
+            styleOverrides: {
+              root: {
+                borderRadius: 8,
+                padding: '6px 16px',
+                fontWeight: 500,
+              },
+              contained: {
+                boxShadow: 'none',
+                '&:hover': {
+                  boxShadow: 'none',
+                },
+              },
+            },
+          },
+          MuiChip: {
+            styleOverrides: {
+              root: {
+                borderRadius: 6,
+                fontWeight: 500,
+              },
+            },
+          },
+          MuiPaper: {
+            styleOverrides: {
+              root: {
+                backgroundImage: 'none',
+              },
+            },
+          },
+          MuiAppBar: {
+            styleOverrides: {
+              root: {
+                backgroundImage: 'none',
+                boxShadow: 'none',
+                borderBottom: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+                backdropFilter: 'blur(20px)',
+                backgroundColor: darkMode ? 'rgba(28, 28, 30, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+              },
+            },
+          },
+          MuiListItem: {
+            styleOverrides: {
+              root: {
+                borderRadius: 8,
+              },
+            },
+          },
+          MuiTextField: {
+            styleOverrides: {
+              root: {
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 8,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                    },
+                  },
+                  '&.Mui-focused': {
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderWidth: 2,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          MuiDialog: {
+            styleOverrides: {
+              paper: {
+                borderRadius: 12,
+                boxShadow: darkMode
+                  ? '0 10px 40px rgba(0, 0, 0, 0.5)'
+                  : '0 10px 40px rgba(0, 0, 0, 0.15)',
+              },
+            },
+          },
+          MuiTooltip: {
+            styleOverrides: {
+              tooltip: {
+                borderRadius: 6,
+                fontSize: '0.75rem',
+                padding: '6px 10px',
+                backgroundColor: darkMode ? 'rgba(60, 60, 67, 0.95)' : 'rgba(60, 60, 67, 0.9)',
+              },
+            },
+          },
+          MuiAlert: {
+            styleOverrides: {
+              root: {
+                borderRadius: 10,
+              },
+            },
+          },
         },
       }),
     [darkMode]

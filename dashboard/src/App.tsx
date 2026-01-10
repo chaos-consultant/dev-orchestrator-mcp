@@ -1,60 +1,43 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Page,
-  PageSection,
-  Masthead,
-  MastheadMain,
-  MastheadBrand,
-  MastheadContent,
-  Brand,
-  Card,
-  CardTitle,
-  CardBody,
-  CardHeader,
+  AppBar,
+  Toolbar,
+  Typography,
+  Container,
   Grid,
-  GridItem,
-  Title,
-  Label,
-  LabelGroup,
+  Card,
+  CardHeader,
+  CardContent,
   Button,
+  Chip,
   Alert,
-  AlertGroup,
-  AlertActionCloseButton,
-  DescriptionList,
-  DescriptionListGroup,
-  DescriptionListTerm,
-  DescriptionListDescription,
-  EmptyState,
-  EmptyStateHeader,
-  EmptyStateIcon,
-  EmptyStateBody,
-  Spinner,
-  Split,
-  SplitItem,
+  Box,
+  Paper,
   Stack,
-  StackItem,
-  Panel,
-  PanelMain,
-  PanelMainBody,
-  Flex,
-  FlexItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
   Divider,
-  Modal,
-  ModalVariant,
-  CodeBlock,
-  CodeBlockCode,
-} from '@patternfly/react-core';
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  styled,
+  alpha,
+} from '@mui/material';
 import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  TimesCircleIcon,
-  CubesIcon,
-  ServerIcon,
-  CodeIcon,
-  PlayIcon,
-  StopIcon,
-  SyncIcon,
-} from '@patternfly/react-icons';
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Warning as WarningIcon,
+  ViewModule as CubesIcon,
+  Storage as ServerIcon,
+  Code as CodeIcon,
+  Stop as StopIcon,
+  Sync as SyncIcon,
+  Error as ErrorIcon,
+} from '@mui/icons-material';
 
 // Types
 interface ProjectProfile {
@@ -117,6 +100,22 @@ interface AppState {
 
 const WS_URL = 'ws://127.0.0.1:8766';
 
+// Styled components
+const LogEntryPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(1),
+  fontSize: '0.875rem',
+  fontFamily: 'monospace',
+}));
+
+const CodeBox = styled(Box)(({ theme }) => ({
+  backgroundColor: alpha(theme.palette.grey[900], 0.05),
+  padding: theme.spacing(1.5),
+  borderRadius: theme.shape.borderRadius,
+  fontFamily: 'monospace',
+  fontSize: '0.875rem',
+  overflowX: 'auto',
+}));
+
 const App: React.FC = () => {
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState<AppState | null>(null);
@@ -136,7 +135,6 @@ const App: React.FC = () => {
 
     ws.onclose = () => {
       setConnected(false);
-      // Reconnect after 3 seconds
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000);
     };
 
@@ -240,6 +238,17 @@ const App: React.FC = () => {
     setSelectedApproval(null);
   };
 
+  const stopService = (serviceId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'stop_service',
+          service_id: serviceId,
+        })
+      );
+    }
+  };
+
   useEffect(() => {
     connect();
     return () => {
@@ -251,24 +260,26 @@ const App: React.FC = () => {
   }, [connect]);
 
   const renderConnectionStatus = () => (
-    <Split hasGutter>
-      <SplitItem>
-        {connected ? (
-          <Label color="green" icon={<CheckCircleIcon />}>
-            Connected
-          </Label>
-        ) : (
-          <Label color="red" icon={<TimesCircleIcon />}>
-            Disconnected
-          </Label>
-        )}
-      </SplitItem>
-      {!connected && (
-        <SplitItem>
-          <Spinner size="sm" aria-label="Reconnecting" />
-        </SplitItem>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {connected ? (
+        <Chip
+          icon={<CheckCircleIcon />}
+          label="Connected"
+          color="success"
+          size="small"
+        />
+      ) : (
+        <>
+          <Chip
+            icon={<CancelIcon />}
+            label="Disconnected"
+            color="error"
+            size="small"
+          />
+          <CircularProgress size={16} />
+        </>
       )}
-    </Split>
+    </Box>
   );
 
   const renderProjectCard = () => {
@@ -277,71 +288,62 @@ const App: React.FC = () => {
     if (!project) {
       return (
         <Card>
-          <CardTitle>Current Project</CardTitle>
-          <CardBody>
-            <EmptyState>
-              <EmptyStateHeader
-                titleText="No Project Detected"
-                icon={<EmptyStateIcon icon={CubesIcon} />}
-              />
-              <EmptyStateBody>
+          <CardHeader title="Current Project" />
+          <CardContent>
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <CubesIcon sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                No Project Detected
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 Run <code>detect_project</code> to scan a directory.
-              </EmptyStateBody>
-            </EmptyState>
-          </CardBody>
+              </Typography>
+            </Box>
+          </CardContent>
         </Card>
       );
     }
 
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>
-            <CubesIcon /> {project.name}
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
-          <DescriptionList isHorizontal>
-            <DescriptionListGroup>
-              <DescriptionListTerm>Path</DescriptionListTerm>
-              <DescriptionListDescription>
-                <code>{project.path}</code>
-              </DescriptionListDescription>
-            </DescriptionListGroup>
-            <DescriptionListGroup>
-              <DescriptionListTerm>Type</DescriptionListTerm>
-              <DescriptionListDescription>
-                <LabelGroup>
-                  {project.project_type.map((t) => (
-                    <Label key={t} color="blue">
-                      {t}
-                    </Label>
-                  ))}
-                </LabelGroup>
-              </DescriptionListDescription>
-            </DescriptionListGroup>
+        <CardHeader
+          avatar={<CubesIcon />}
+          title={project.name}
+        />
+        <CardContent>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">Path</Typography>
+              <CodeBox>{project.path}</CodeBox>
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Type</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                {project.project_type.map((t) => (
+                  <Chip key={t} label={t} color="primary" size="small" />
+                ))}
+              </Stack>
+            </Box>
             {project.git_branch && (
-              <DescriptionListGroup>
-                <DescriptionListTerm>Git Branch</DescriptionListTerm>
-                <DescriptionListDescription>{project.git_branch}</DescriptionListDescription>
-              </DescriptionListGroup>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">Git Branch</Typography>
+                <Typography variant="body2">{project.git_branch}</Typography>
+              </Box>
             )}
             {project.git_user_email && (
-              <DescriptionListGroup>
-                <DescriptionListTerm>Git User</DescriptionListTerm>
-                <DescriptionListDescription>{project.git_user_email}</DescriptionListDescription>
-              </DescriptionListGroup>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">Git User</Typography>
+                <Typography variant="body2">{project.git_user_email}</Typography>
+              </Box>
             )}
             {project.venv_path && (
-              <DescriptionListGroup>
-                <DescriptionListTerm>Virtual Env</DescriptionListTerm>
-                <DescriptionListDescription>
-                  <Label color="green">Active</Label>
-                </DescriptionListDescription>
-              </DescriptionListGroup>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">Virtual Environment</Typography>
+                <Chip label="Active" color="success" size="small" />
+              </Box>
             )}
-          </DescriptionList>
-        </CardBody>
+          </Stack>
+        </CardContent>
       </Card>
     );
   };
@@ -352,49 +354,46 @@ const App: React.FC = () => {
 
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>
-            <ServerIcon /> Running Services ({serviceList.length})
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
+        <CardHeader
+          avatar={<ServerIcon />}
+          title={`Running Services (${serviceList.length})`}
+        />
+        <CardContent>
           {serviceList.length === 0 ? (
-            <EmptyState variant="xs">
-              <EmptyStateHeader titleText="No services running" />
-            </EmptyState>
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                No services running
+              </Typography>
+            </Box>
           ) : (
-            <Stack hasGutter>
+            <Stack spacing={2}>
               {serviceList.map((svc) => (
-                <StackItem key={svc.id}>
-                  <Panel variant="raised">
-                    <PanelMain>
-                      <PanelMainBody>
-                        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }}>
-                          <FlexItem>
-                            <Stack>
-                              <StackItem>
-                                <strong>{svc.name}</strong>
-                              </StackItem>
-                              <StackItem>
-                                <Label color="blue">Port {svc.port || 'N/A'}</Label>{' '}
-                                <Label>PID {svc.pid}</Label>
-                              </StackItem>
-                            </Stack>
-                          </FlexItem>
-                          <FlexItem>
-                            <Button variant="danger" size="sm" icon={<StopIcon />}>
-                              Stop
-                            </Button>
-                          </FlexItem>
-                        </Flex>
-                      </PanelMainBody>
-                    </PanelMain>
-                  </Panel>
-                </StackItem>
+                <Paper key={svc.id} variant="outlined" sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {svc.name}
+                      </Typography>
+                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                        <Chip label={`Port ${svc.port || 'N/A'}`} size="small" color="primary" />
+                        <Chip label={`PID ${svc.pid}`} size="small" />
+                      </Stack>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="small"
+                      startIcon={<StopIcon />}
+                      onClick={() => stopService(svc.id)}
+                    >
+                      Stop
+                    </Button>
+                  </Box>
+                </Paper>
               ))}
             </Stack>
           )}
-        </CardBody>
+        </CardContent>
       </Card>
     );
   };
@@ -405,38 +404,40 @@ const App: React.FC = () => {
     if (approvals.length === 0) return null;
 
     return (
-      <Card className="approval-card">
-        <CardHeader>
-          <CardTitle>
-            <ExclamationTriangleIcon color="var(--pf-t--global--color--status--warning--default)" />{' '}
-            Pending Approvals ({approvals.length})
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
-          <AlertGroup>
-            {approvals.map((approval) => (
-              <Alert
-                key={approval.id}
-                variant="warning"
-                title={approval.reason}
-                actionLinks={
-                  <>
+      <Box sx={{ mb: 3 }}>
+        <Card>
+          <CardHeader
+            avatar={<WarningIcon color="warning" />}
+            title={`Pending Approvals (${approvals.length})`}
+          />
+          <CardContent>
+            <Stack spacing={2}>
+              {approvals.map((approval) => (
+                <Alert
+                  key={approval.id}
+                  severity="warning"
+                  action={
                     <Button
-                      variant="primary"
-                      size="sm"
+                      color="inherit"
+                      size="small"
                       onClick={() => setSelectedApproval(approval)}
                     >
                       Review
                     </Button>
-                  </>
-                }
-              >
-                <code>{approval.command.substring(0, 60)}...</code>
-              </Alert>
-            ))}
-          </AlertGroup>
-        </CardBody>
-      </Card>
+                  }
+                >
+                  <Typography variant="subtitle2" fontWeight="bold">
+                    {approval.reason}
+                  </Typography>
+                  <CodeBox sx={{ mt: 1, backgroundColor: alpha('#000', 0.05) }}>
+                    {approval.command.substring(0, 60)}...
+                  </CodeBox>
+                </Alert>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      </Box>
     );
   };
 
@@ -446,56 +447,57 @@ const App: React.FC = () => {
 
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>
-            <CodeIcon /> Recent Commands
-          </CardTitle>
-        </CardHeader>
-        <CardBody style={{ maxHeight: '300px', overflow: 'auto' }}>
+        <CardHeader
+          avatar={<CodeIcon />}
+          title="Recent Commands"
+        />
+        <CardContent sx={{ maxHeight: '300px', overflow: 'auto' }}>
           {recent.length === 0 ? (
-            <EmptyState variant="xs">
-              <EmptyStateHeader titleText="No commands yet" />
-            </EmptyState>
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                No commands yet
+              </Typography>
+            </Box>
           ) : (
-            <Stack>
+            <List dense>
               {recent.map((cmd, idx) => (
-                <StackItem key={idx}>
-                  <Flex>
-                    <FlexItem>
+                <React.Fragment key={idx}>
+                  <ListItem>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
                       {cmd.status === 'completed' ? (
-                        <CheckCircleIcon color="green" />
+                        <CheckCircleIcon color="success" fontSize="small" />
                       ) : cmd.status === 'failed' ? (
-                        <TimesCircleIcon color="red" />
+                        <ErrorIcon color="error" fontSize="small" />
                       ) : (
-                        <SyncIcon />
+                        <SyncIcon fontSize="small" />
                       )}
-                    </FlexItem>
-                    <FlexItem grow={{ default: 'grow' }}>
-                      <code style={{ fontSize: '0.85rem' }}>
-                        {cmd.command.substring(0, 50)}
-                        {cmd.command.length > 50 ? '...' : ''}
-                      </code>
-                    </FlexItem>
-                    <FlexItem>
-                      <Label
-                        color={
-                          cmd.status === 'completed'
-                            ? 'green'
-                            : cmd.status === 'failed'
-                            ? 'red'
-                            : 'grey'
-                        }
-                      >
-                        {cmd.exit_code !== undefined ? `exit ${cmd.exit_code}` : cmd.status}
-                      </Label>
-                    </FlexItem>
-                  </Flex>
-                  <Divider />
-                </StackItem>
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontFamily="monospace" fontSize="0.85rem">
+                          {cmd.command.substring(0, 50)}
+                          {cmd.command.length > 50 ? '...' : ''}
+                        </Typography>
+                      }
+                    />
+                    <Chip
+                      label={cmd.exit_code !== undefined ? `exit ${cmd.exit_code}` : cmd.status}
+                      size="small"
+                      color={
+                        cmd.status === 'completed'
+                          ? 'success'
+                          : cmd.status === 'failed'
+                          ? 'error'
+                          : 'default'
+                      }
+                    />
+                  </ListItem>
+                  {idx < recent.length - 1 && <Divider />}
+                </React.Fragment>
               ))}
-            </Stack>
+            </List>
           )}
-        </CardBody>
+        </CardContent>
       </Card>
     );
   };
@@ -506,123 +508,113 @@ const App: React.FC = () => {
 
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Logs</CardTitle>
-        </CardHeader>
-        <CardBody style={{ maxHeight: '400px', overflow: 'auto', padding: 0 }}>
-          {recent.map((log, idx) => (
-            <div
-              key={idx}
-              className={`log-entry log-${log.level.toLowerCase()}`}
-            >
-              <span style={{ color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
-                {new Date(log.timestamp).toLocaleTimeString()}
-              </span>{' '}
-              <Label
-                isCompact
-                color={
-                  log.level === 'ERROR'
-                    ? 'red'
-                    : log.level === 'WARN'
-                    ? 'orange'
-                    : 'grey'
-                }
-              >
-                {log.level}
-              </Label>{' '}
-              <span>{log.message}</span>
-            </div>
-          ))}
-        </CardBody>
+        <CardHeader title="Logs" />
+        <CardContent sx={{ maxHeight: '400px', overflow: 'auto', p: 0 }}>
+          <Stack spacing={0.5} sx={{ p: 2 }}>
+            {recent.map((log, idx) => (
+              <LogEntryPaper key={idx} variant="outlined">
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                  {new Date(log.timestamp).toLocaleTimeString()}
+                </Typography>
+                <Chip
+                  label={log.level}
+                  size="small"
+                  color={
+                    log.level === 'ERROR'
+                      ? 'error'
+                      : log.level === 'WARN'
+                      ? 'warning'
+                      : 'default'
+                  }
+                  sx={{ mr: 1 }}
+                />
+                <Typography component="span" variant="body2">
+                  {log.message}
+                </Typography>
+              </LogEntryPaper>
+            ))}
+          </Stack>
+        </CardContent>
       </Card>
     );
   };
 
   return (
-    <Page
-      className="dashboard-page"
-      masthead={
-        <Masthead>
-          <MastheadMain>
-            <MastheadBrand>
-              <Title headingLevel="h1" size="lg">
-                🔧 Dev Orchestrator
-              </Title>
-            </MastheadBrand>
-          </MastheadMain>
-          <MastheadContent>{renderConnectionStatus()}</MastheadContent>
-        </Masthead>
-      }
-    >
-      <PageSection>
-        {renderApprovalsCard()}
-      </PageSection>
+    <Box sx={{ flexGrow: 1 }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            🔧 Dev Orchestrator
+          </Typography>
+          {renderConnectionStatus()}
+        </Toolbar>
+      </AppBar>
 
-      <PageSection>
-        <Grid hasGutter>
-          <GridItem md={6} lg={4}>
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        {renderApprovalsCard()}
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6} lg={4}>
             {renderProjectCard()}
-          </GridItem>
-          <GridItem md={6} lg={4}>
+          </Grid>
+          <Grid item xs={12} md={6} lg={4}>
             {renderServicesCard()}
-          </GridItem>
-          <GridItem md={6} lg={4}>
+          </Grid>
+          <Grid item xs={12} md={6} lg={4}>
             {renderCommandHistory()}
-          </GridItem>
-          <GridItem span={12}>
+          </Grid>
+          <Grid item xs={12}>
             {renderLogs()}
-          </GridItem>
+          </Grid>
         </Grid>
-      </PageSection>
+      </Container>
 
       {selectedApproval && (
-        <Modal
-          variant={ModalVariant.medium}
-          title="Command Approval Required"
-          isOpen={true}
+        <Dialog
+          open={true}
           onClose={() => setSelectedApproval(null)}
-          actions={[
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Command Approval Required</DialogTitle>
+          <DialogContent>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <Alert severity="warning">{selectedApproval.reason}</Alert>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Command
+                </Typography>
+                <CodeBox>{selectedApproval.command}</CodeBox>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Working Directory
+                </Typography>
+                <CodeBox>{selectedApproval.cwd}</CodeBox>
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSelectedApproval(null)}>Cancel</Button>
             <Button
-              key="approve"
-              variant="primary"
-              onClick={() => sendApproval(selectedApproval.id, true)}
-            >
-              Approve
-            </Button>,
-            <Button
-              key="reject"
-              variant="danger"
               onClick={() => sendApproval(selectedApproval.id, false)}
+              color="error"
+              variant="outlined"
             >
               Reject
-            </Button>,
+            </Button>
             <Button
-              key="cancel"
-              variant="link"
-              onClick={() => setSelectedApproval(null)}
+              onClick={() => sendApproval(selectedApproval.id, true)}
+              color="primary"
+              variant="contained"
+              autoFocus
             >
-              Cancel
-            </Button>,
-          ]}
-        >
-          <Stack hasGutter>
-            <StackItem>
-              <Alert variant="warning" title={selectedApproval.reason} isInline />
-            </StackItem>
-            <StackItem>
-              <Title headingLevel="h4">Command</Title>
-              <CodeBlock>
-                <CodeBlockCode>{selectedApproval.command}</CodeBlockCode>
-              </CodeBlock>
-            </StackItem>
-            <StackItem>
-              <Title headingLevel="h4">Working Directory</Title>
-              <code>{selectedApproval.cwd}</code>
-            </StackItem>
-          </Stack>
-        </Modal>
+              Approve
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
-    </Page>
+    </Box>
   );
 };
 

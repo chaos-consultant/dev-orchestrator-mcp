@@ -341,6 +341,17 @@ const App: React.FC = () => {
     setCommandInput('');
   };
 
+  const switchProject = (repoName: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'switch_project',
+          repo_name: repoName,
+        })
+      );
+    }
+  };
+
   const handleCommandKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -755,7 +766,15 @@ const App: React.FC = () => {
             <List dense>
               {workspace.repos.slice(0, 10).map((repo, idx) => (
                 <React.Fragment key={repo.name}>
-                  <ListItem>
+                  <ListItem
+                    onClick={() => switchProject(repo.name)}
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       {repo.has_uncommitted_changes ? (
                         <FolderOpenIcon color="warning" fontSize="small" />

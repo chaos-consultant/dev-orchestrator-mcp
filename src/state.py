@@ -74,21 +74,22 @@ class StateManager:
         """Broadcast an event to all connected WebSocket clients."""
         if not self.clients:
             return
-        
+
         message = json.dumps({
             "type": event_type,
             "data": data,
             "timestamp": datetime.now().isoformat()
         })
-        
+
         # Send to all clients, removing disconnected ones
+        # Use a copy of the set to avoid RuntimeError during iteration
         disconnected = set()
-        for client in self.clients:
+        for client in list(self.clients):
             try:
                 await client.send(message)
             except websockets.ConnectionClosed:
                 disconnected.add(client)
-        
+
         self.clients -= disconnected
     
     async def broadcast_state(self):

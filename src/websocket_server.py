@@ -156,6 +156,47 @@ class WebSocketServer:
                     "service_id": service_id
                 }))
 
+        elif msg_type == "switch_project":
+            repo_name = data.get("repo_name")
+            if repo_name:
+                try:
+                    # Find the repo
+                    repo = self.workspace_manager.find_repo_by_name(repo_name)
+                    if repo:
+                        # Import here to avoid issues
+                        import os
+                        from .detector import ProjectDetector
+
+                        # Change directory
+                        os.chdir(repo.path)
+
+                        # Detect project
+                        detector = ProjectDetector(repo.path)
+                        profile = detector.detect()
+
+                        # Update state
+                        await self.state_manager.set_project(profile)
+                        await self.state_manager.log("INFO", f"Switched to project: {repo_name}")
+
+                        await websocket.send(json.dumps({
+                            "type": "project_switched",
+                            "success": True,
+                            "project": profile.model_dump(mode='json')
+                        }))
+                    else:
+                        await websocket.send(json.dumps({
+                            "type": "project_switched",
+                            "success": False,
+                            "error": f"Repository '{repo_name}' not found"
+                        }))
+                except Exception as e:
+                    await self.state_manager.log("ERROR", f"Failed to switch project: {str(e)}")
+                    await websocket.send(json.dumps({
+                        "type": "project_switched",
+                        "success": False,
+                        "error": str(e)
+                    }))
+
         elif msg_type == "ping":
             await websocket.send(json.dumps({"type": "pong"}))
     

@@ -33,10 +33,11 @@ class AppState:
     command_history: list[dict] = field(default_factory=list)
     pending_approvals: list[dict] = field(default_factory=list)
     logs: list[dict] = field(default_factory=list)
-    
+    workspace: Optional[dict] = None
+
     def to_dict(self) -> dict:
         """Convert state to dictionary for JSON serialization."""
-        return {
+        result = {
             "current_project": self.current_project.model_dump(mode='json') if self.current_project else None,
             "services": {
                 k: {
@@ -55,6 +56,9 @@ class AppState:
             "pending_approvals": self.pending_approvals,
             "logs": self.logs[-100:],
         }
+        if self.workspace:
+            result["workspace"] = self.workspace
+        return result
 
 
 class StateManager:
@@ -110,6 +114,12 @@ class StateManager:
         async with self._lock:
             self.state.current_project = profile
         await self.broadcast("project_changed", profile.model_dump(mode='json'))
+
+    async def set_workspace(self, workspace_data: dict):
+        """Set workspace data and broadcast update."""
+        async with self._lock:
+            self.state.workspace = workspace_data
+        await self.broadcast("workspace", workspace_data)
     
     async def add_service(self, service: ServiceInfo):
         """Add a running service and broadcast update."""

@@ -56,6 +56,11 @@ import {
   Help as HelpIcon,
   PlayArrow as PlayArrowIcon,
   Info as InfoIcon,
+  Folder as FolderIcon,
+  FolderOpen as FolderOpenIcon,
+  AccountTree as AccountTreeIcon,
+  CloudUpload as CloudUploadIcon,
+  CloudDownload as CloudDownloadIcon,
 } from '@mui/icons-material';
 
 // Types
@@ -109,12 +114,35 @@ interface LogEntry {
   timestamp: string;
 }
 
+interface RepoInfo {
+  name: string;
+  path: string;
+  branch?: string;
+  has_uncommitted_changes: boolean;
+  ahead_behind?: string;
+  last_commit_message?: string;
+  last_commit_time?: string;
+  last_commit_author?: string;
+  is_git_repo: boolean;
+  error?: string;
+}
+
+interface WorkspaceStatus {
+  workspace_root: string;
+  total_repos: number;
+  repos_with_changes: number;
+  repos_ahead_of_upstream: number;
+  repos_need_pull: number;
+  repos: RepoInfo[];
+}
+
 interface AppState {
   current_project?: ProjectProfile;
   services: Record<string, Service>;
   command_history: CommandHistory[];
   pending_approvals: PendingApproval[];
   logs: LogEntry[];
+  workspace?: WorkspaceStatus;
 }
 
 const WS_URL = 'ws://127.0.0.1:8766';
@@ -228,6 +256,11 @@ const App: React.FC = () => {
                 logs: [...prev.logs.slice(-99), data.data as LogEntry],
               }
             : null
+        );
+        break;
+      case 'workspace':
+        setState((prev) =>
+          prev ? { ...prev, workspace: data.data as WorkspaceStatus } : null
         );
         break;
     }
@@ -656,6 +689,130 @@ const App: React.FC = () => {
     );
   };
 
+  const renderWorkspacePanel = () => {
+    const workspace = state?.workspace;
+
+    if (!workspace) {
+      return (
+        <Card>
+          <CardHeader
+            avatar={<AccountTreeIcon />}
+            title="Workspace"
+          />
+          <CardContent>
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <AccountTreeIcon sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                No Workspace Detected
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Workspace discovery happens automatically
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card>
+        <CardHeader
+          avatar={<AccountTreeIcon />}
+          title={`Workspace (${workspace.total_repos} repos)`}
+          subheader={workspace.workspace_root}
+        />
+        <CardContent>
+          {/* Summary Stats */}
+          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+            {workspace.repos_with_changes > 0 && (
+              <Chip
+                icon={<WarningIcon />}
+                label={`${workspace.repos_with_changes} with changes`}
+                color="warning"
+                size="small"
+              />
+            )}
+            {workspace.repos_ahead_of_upstream > 0 && (
+              <Chip
+                icon={<CloudUploadIcon />}
+                label={`${workspace.repos_ahead_of_upstream} ahead`}
+                color="info"
+                size="small"
+              />
+            )}
+            {workspace.repos_need_pull > 0 && (
+              <Chip
+                icon={<CloudDownloadIcon />}
+                label={`${workspace.repos_need_pull} behind`}
+                color="error"
+                size="small"
+              />
+            )}
+          </Stack>
+
+          {/* Repo List */}
+          <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+            <List dense>
+              {workspace.repos.slice(0, 10).map((repo, idx) => (
+                <React.Fragment key={repo.name}>
+                  <ListItem>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      {repo.has_uncommitted_changes ? (
+                        <FolderOpenIcon color="warning" fontSize="small" />
+                      ) : (
+                        <FolderIcon color="action" fontSize="small" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" fontWeight={repo.has_uncommitted_changes ? 'bold' : 'normal'}>
+                            {repo.name}
+                          </Typography>
+                          {repo.branch && (
+                            <Chip
+                              label={repo.branch}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                          )}
+                        </Box>
+                      }
+                      secondary={
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                          {repo.has_uncommitted_changes && (
+                            <Chip label="uncommitted" size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />
+                          )}
+                          {repo.ahead_behind && repo.ahead_behind !== 'no upstream' && repo.ahead_behind !== 'up to date' && (
+                            <Chip label={repo.ahead_behind} size="small" color="info" sx={{ height: 18, fontSize: '0.65rem' }} />
+                          )}
+                          {repo.last_commit_time && (
+                            <Typography variant="caption" color="text.secondary">
+                              {repo.last_commit_time}
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                  {idx < Math.min(workspace.repos.length, 10) - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+            {workspace.repos.length > 10 && (
+              <Box sx={{ textAlign: 'center', py: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  ... and {workspace.repos.length - 10} more repositories
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -740,6 +897,9 @@ const App: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={6} lg={4}>
             {renderCommandHistory()}
+          </Grid>
+          <Grid item xs={12}>
+            {renderWorkspacePanel()}
           </Grid>
           <Grid item xs={12}>
             {renderLogs()}

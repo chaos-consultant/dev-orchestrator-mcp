@@ -10,6 +10,7 @@ from .state import get_state_manager
 from .config import get_config
 from .executor import ShellExecutor
 from .nlp_service import get_nlp_service
+from .workspace_manager import WorkspaceManager
 from datetime import datetime
 
 
@@ -30,6 +31,9 @@ class WebSocketServer:
                 self.state_manager.log(level, msg, "websocket-executor")
             )
         )
+
+        # Create workspace manager
+        self.workspace_manager = WorkspaceManager()
 
     async def handler(self, websocket):
         """Handle WebSocket connections."""
@@ -54,6 +58,13 @@ class WebSocketServer:
         msg_type = data.get("type")
 
         if msg_type == "get_state":
+            # Fetch workspace data
+            try:
+                workspace_summary = self.workspace_manager.get_workspace_summary()
+                await self.state_manager.set_workspace(workspace_summary)
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to get workspace: {e}")
+
             await websocket.send(json.dumps({
                 "type": "state",
                 "data": self.state_manager.state.to_dict()

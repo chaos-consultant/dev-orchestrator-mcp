@@ -7,6 +7,10 @@ A Mac dev environment orchestration MCP server that enables Claude to run and te
 ## Features
 
 - **Full Shell Control with Guardrails**: Execute commands with automatic blocking of dangerous operations
+- **Natural Language Processing**: AI-powered command translation using Ollama (optional)
+  - Convert natural language to shell commands
+  - Intelligent intent detection (shell vs MCP tool)
+  - Toggle NLP on/off in dashboard
 - **Interactive Approval**: Commands matching dangerous patterns require your explicit approval
 - **Project Auto-Detection**: Automatically detects FastAPI, React, Python, Node.js projects
 - **Virtual Environment Management**: Auto-activates correct venv per project
@@ -14,6 +18,7 @@ A Mac dev environment orchestration MCP server that enables Claude to run and te
 - **Multi-Interface Visibility**:
   - Web Dashboard (Material-UI React)
     - Manual command execution
+    - Natural language input mode
     - Dark/light mode toggle
     - Log filtering by level
     - Command history with detail view

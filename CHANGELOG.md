@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Natural Language Processing integration using Ollama:
+  - AI-powered command translation from natural language to shell commands
+  - Intent classification (shell command vs MCP tool detection)
+  - Toggle switch in dashboard to enable/disable NLP mode
+  - Visual indicator (brain icon) when NLP mode is active
+  - Confidence scoring and reasoning for translated commands
+  - Graceful fallback to shell execution if Ollama unavailable
 - Material-UI dashboard with enhanced features:
   - Manual command input field with keyboard shortcut (Enter to execute)
   - Dark/light mode toggle with persistent theme
@@ -15,12 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Command history with clickable items for detailed view
   - Reconnection indicator showing attempt count
   - Command detail dialog displaying full information
+- New `nlp_service.py` module with OllamaNLPService class
+- httpx dependency for Ollama API integration
 
 ### Changed
 - Converted dashboard from PatternFly to Material-UI
 - Updated connection status to show reconnection attempts
 - Improved command history with interactive list items
 - Enhanced log display with filtering capabilities
+- WebSocket server now supports NLP translation before command execution
+- Command input placeholder changes based on NLP toggle state
+
+### Fixed
+- WebSocket server missing run_command handler (dashboard commands now execute properly)
 
 ## [0.1.0] - 2026-01-10
 

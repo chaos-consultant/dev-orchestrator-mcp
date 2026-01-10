@@ -31,6 +31,8 @@ import {
   FormControl,
   InputLabel,
   Tooltip,
+  Switch,
+  FormControlLabel,
   styled,
   alpha,
   ThemeProvider,
@@ -50,6 +52,7 @@ import {
   Send as SendIcon,
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
+  Psychology as PsychologyIcon,
 } from '@mui/icons-material';
 
 // Types
@@ -138,6 +141,7 @@ const App: React.FC = () => {
   const [logFilter, setLogFilter] = useState<string>('all');
   const [selectedCommand, setSelectedCommand] = useState<CommandHistory | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [useNlp, setUseNlp] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -289,6 +293,7 @@ const App: React.FC = () => {
       JSON.stringify({
         type: 'run_command',
         command: commandInput.trim(),
+        use_nlp: useNlp,
       })
     );
     setCommandInput('');
@@ -645,27 +650,50 @@ const App: React.FC = () => {
         {/* Manual Command Input */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Enter command to execute..."
-                value={commandInput}
-                onChange={(e) => setCommandInput(e.target.value)}
-                onKeyPress={handleCommandKeyPress}
-                disabled={!connected}
-                InputProps={{
-                  startAdornment: <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />,
-                }}
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder={useNlp ? "Enter natural language command..." : "Enter shell command..."}
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyPress={handleCommandKeyPress}
+                  disabled={!connected}
+                  InputProps={{
+                    startAdornment: useNlp ? (
+                      <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
+                    ) : (
+                      <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />
+                    ),
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={sendCommand}
+                  disabled={!connected || !commandInput.trim()}
+                  endIcon={<SendIcon />}
+                >
+                  Run
+                </Button>
+              </Stack>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={useNlp}
+                    onChange={(e) => setUseNlp(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PsychologyIcon fontSize="small" />
+                    <Typography variant="body2">
+                      Natural Language Processing (AI-powered command translation)
+                    </Typography>
+                  </Box>
+                }
               />
-              <Button
-                variant="contained"
-                onClick={sendCommand}
-                disabled={!connected || !commandInput.trim()}
-                endIcon={<SendIcon />}
-              >
-                Run
-              </Button>
             </Stack>
           </CardContent>
         </Card>

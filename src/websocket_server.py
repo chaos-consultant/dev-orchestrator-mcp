@@ -9,6 +9,7 @@ from websockets import serve, ConnectionClosed
 from .state import get_state_manager
 from .config import get_config
 from .executor import ShellExecutor
+from .nlp_service import get_nlp_service
 from datetime import datetime
 
 
@@ -76,8 +77,40 @@ class WebSocketServer:
         elif msg_type == "run_command":
             command = data.get("command")
             cwd = data.get("cwd", ".")
+            use_nlp = data.get("use_nlp", False)
+
             if command:
                 try:
+                    # If NLP is enabled, translate natural language to command
+                    if use_nlp:
+                        nlp_service = get_nlp_service()
+                        intent = await nlp_service.parse_natural_language(command)
+
+                        await self.state_manager.log(
+                            "INFO",
+                            f"NLP: '{command}' -> {intent.type} (confidence: {intent.confidence:.2f})"
+                        )
+
+                        # Handle different intent types
+                        if intent.type == "shell":
+                            # Execute as shell command
+                            command = intent.command
+                        elif intent.type in ["detect_project", "start_service", "stop_service", "git_status", "list_services", "run_tests", "check_ports"]:
+                            # MCP tool - inform user to use MCP server
+                            await websocket.send(json.dumps({
+                                "type": "command_result",
+                                "status": "info",
+                                "exit_code": 0,
+                                "stdout": f"Detected MCP tool request: {intent.type}\nParameters: {intent.parameters}\nPlease use the MCP server to execute this tool.",
+                                "stderr": ""
+                            }))
+                            return
+                        else:
+                            # Unknown intent - fallback to shell
+                            await self.state_manager.log("WARN", f"Unknown intent type: {intent.type}, treating as shell")
+                            command = intent.command
+
+                    # Execute command
                     result = await self.executor.execute(command, cwd)
                     await self.state_manager.add_command({
                         "command": command,

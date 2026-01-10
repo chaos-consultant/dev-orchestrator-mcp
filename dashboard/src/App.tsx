@@ -161,40 +161,7 @@ const App: React.FC = () => {
     [darkMode]
   );
 
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const ws = new WebSocket(WS_URL);
-
-    ws.onopen = () => {
-      setConnected(true);
-      setReconnectAttempts(0);
-      ws.send(JSON.stringify({ type: 'get_state' }));
-    };
-
-    ws.onclose = () => {
-      setConnected(false);
-      setReconnectAttempts(prev => prev + 1);
-      reconnectTimeoutRef.current = window.setTimeout(connect, 3000);
-    };
-
-    ws.onerror = () => {
-      ws.close();
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleMessage(data);
-      } catch (e) {
-        console.error('Failed to parse message:', e);
-      }
-    };
-
-    wsRef.current = ws;
-  }, []);
-
-  const handleMessage = (data: { type: string; data: unknown }) => {
+  const handleMessage = useCallback((data: { type: string; data: unknown }) => {
     switch (data.type) {
       case 'state':
         setState(data.data as AppState);
@@ -264,7 +231,44 @@ const App: React.FC = () => {
         );
         break;
     }
-  };
+  }, []);
+
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    const ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      setConnected(true);
+      setReconnectAttempts(0);
+      ws.send(JSON.stringify({ type: 'get_state' }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleMessage(data);
+      } catch (e) {
+        console.error('Failed to parse message:', e);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      setConnected(false);
+      wsRef.current = null;
+
+      reconnectTimeoutRef.current = window.setTimeout(() => {
+        setReconnectAttempts((prev) => prev + 1);
+        connect();
+      }, 3000);
+    };
+
+    wsRef.current = ws;
+  }, [handleMessage]);
 
   const sendApproval = (approvalId: string, approved: boolean) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

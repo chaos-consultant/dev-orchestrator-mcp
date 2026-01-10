@@ -1,5 +1,7 @@
 # Dev Orchestrator MCP
 
+[![CI](https://github.com/chaos-consultant/dev-orchestrator-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/chaos-consultant/dev-orchestrator-mcp/actions/workflows/ci.yml)
+
 A Mac dev environment orchestration MCP server that enables Claude to run and test your development stack with guardrails and interactive approval.
 
 ## Features

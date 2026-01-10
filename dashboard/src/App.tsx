@@ -828,76 +828,131 @@ const App: React.FC = () => {
     );
   };
 
-  const renderCommandHistory = () => {
+  const renderCommandsPanel = () => {
     const history = state?.command_history || [];
     const recent = history.slice(-10).reverse();
+    const savedCommands = state?.saved_commands || [];
 
     return (
       <Card>
         <CardHeader
           avatar={<CodeIcon />}
-          title="Recent Commands"
+          title="Commands"
         />
-        <CardContent sx={{ maxHeight: '300px', overflow: 'auto' }}>
-          {recent.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="body2" color="text.secondary">
+        <CardContent sx={{ maxHeight: '500px', overflow: 'auto' }}>
+          {/* Saved Commands Section */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <BookmarkIcon fontSize="small" />
+              Saved ({savedCommands.length})
+            </Typography>
+            {savedCommands.length === 0 ? (
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block', ml: 3 }}>
+                No saved commands. Save frequently used commands from history below.
+              </Typography>
+            ) : (
+              <List dense sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 0.5 }}>
+                {savedCommands.map((cmd, idx) => (
+                  <React.Fragment key={cmd.id}>
+                    <ListItem sx={{ pr: 1, borderRadius: 1 }}>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <BookmarkIcon color="primary" fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" fontWeight="600" fontSize="0.875rem">
+                            {cmd.name}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" fontFamily="monospace" display="block" noWrap>
+                            {cmd.command}
+                          </Typography>
+                        }
+                      />
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Execute">
+                          <IconButton size="small" color="primary" onClick={() => executeSavedCommand(cmd)}>
+                            <PlayArrowIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton size="small" color="error" onClick={() => deleteSavedCommand(cmd.id)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </ListItem>
+                    {idx < savedCommands.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Recent Commands Section */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SyncIcon fontSize="small" />
+              Recent ({recent.length})
+            </Typography>
+            {recent.length === 0 ? (
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block', ml: 3 }}>
                 No commands yet
               </Typography>
-            </Box>
-          ) : (
-            <List dense>
-              {recent.map((cmd, idx) => (
-                <React.Fragment key={idx}>
-                  <ListItem
-                    sx={{ pr: 1 }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      {cmd.status === 'completed' ? (
-                        <CheckCircleIcon color="success" fontSize="small" />
-                      ) : cmd.status === 'failed' ? (
-                        <ErrorIcon color="error" fontSize="small" />
-                      ) : (
-                        <SyncIcon fontSize="small" />
-                      )}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" fontFamily="monospace" fontSize="0.85rem">
-                          {cmd.command.substring(0, 40)}
-                          {cmd.command.length > 40 ? '...' : ''}
-                        </Typography>
-                      }
-                    />
-                    <Chip
-                      label={cmd.exit_code !== undefined ? `exit ${cmd.exit_code}` : cmd.status}
-                      size="small"
-                      color={
-                        cmd.status === 'completed'
-                          ? 'success'
-                          : cmd.status === 'failed'
-                          ? 'error'
-                          : 'default'
-                      }
-                      sx={{ mr: 1 }}
-                    />
-                    <Tooltip title="Save command">
-                      <IconButton
+            ) : (
+              <List dense>
+                {recent.map((cmd, idx) => (
+                  <React.Fragment key={idx}>
+                    <ListItem sx={{ pr: 1 }}>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        {cmd.status === 'completed' ? (
+                          <CheckCircleIcon color="success" fontSize="small" />
+                        ) : cmd.status === 'failed' ? (
+                          <ErrorIcon color="error" fontSize="small" />
+                        ) : (
+                          <SyncIcon fontSize="small" />
+                        )}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" fontFamily="monospace" fontSize="0.85rem" noWrap>
+                            {cmd.command}
+                          </Typography>
+                        }
+                      />
+                      <Chip
+                        label={cmd.exit_code !== undefined ? `${cmd.exit_code}` : cmd.status}
                         size="small"
-                        onClick={() => {
-                          setCommandToSave(cmd);
-                          setSaveDialogOpen(true);
-                        }}
-                      >
-                        <BookmarkAddIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </ListItem>
-                  {idx < recent.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-          )}
+                        color={
+                          cmd.status === 'completed'
+                            ? 'success'
+                            : cmd.status === 'failed'
+                            ? 'error'
+                            : 'default'
+                        }
+                        sx={{ mr: 1, minWidth: 36 }}
+                      />
+                      <Tooltip title="Save command">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setCommandToSave(cmd);
+                            setSaveDialogOpen(true);
+                          }}
+                        >
+                          <BookmarkAddIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </ListItem>
+                    {idx < recent.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </Box>
         </CardContent>
       </Card>
     );
@@ -1045,11 +1100,15 @@ const App: React.FC = () => {
               {workspace.repos.slice(0, 10).map((repo, idx) => (
                 <React.Fragment key={repo.name}>
                   <ListItem
+                    button
                     onClick={() => switchProject(repo.name)}
                     sx={{
                       cursor: 'pointer',
+                      borderRadius: 1,
+                      transition: 'all 0.2s ease',
                       '&:hover': {
                         bgcolor: 'action.hover',
+                        transform: 'translateX(4px)',
                       },
                     }}
                   >
@@ -1074,6 +1133,9 @@ const App: React.FC = () => {
                               sx={{ height: 20, fontSize: '0.7rem' }}
                             />
                           )}
+                          <Typography variant="caption" color="primary" sx={{ ml: 'auto', fontWeight: 500, opacity: 0.7 }}>
+                            Click to switch →
+                          </Typography>
                         </Box>
                       }
                       secondary={
@@ -1105,85 +1167,6 @@ const App: React.FC = () => {
               </Box>
             )}
           </Box>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderSavedCommands = () => {
-    const savedCommands = state?.saved_commands || [];
-
-    return (
-      <Card>
-        <CardHeader
-          avatar={<BookmarkIcon />}
-          title={`Saved Commands (${savedCommands.length})`}
-        />
-        <CardContent>
-          {savedCommands.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <BookmarkIcon sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary">
-                No Saved Commands
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Save frequently used commands from history
-              </Typography>
-            </Box>
-          ) : (
-            <List dense>
-              {savedCommands.map((cmd, idx) => (
-                <React.Fragment key={cmd.id}>
-                  <ListItem sx={{ pr: 1 }}>
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <BookmarkIcon color="primary" fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" fontWeight="bold">
-                          {cmd.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="caption" fontFamily="monospace" display="block">
-                            {cmd.command.substring(0, 50)}
-                            {cmd.command.length > 50 ? '...' : ''}
-                          </Typography>
-                          {cmd.description && (
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {cmd.description}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                    <Stack direction="row" spacing={1}>
-                      <Tooltip title="Execute command">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => executeSavedCommand(cmd)}
-                        >
-                          <PlayArrowIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => deleteSavedCommand(cmd.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </ListItem>
-                  {idx < savedCommands.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-          )}
         </CardContent>
       </Card>
     );
@@ -1281,16 +1264,13 @@ const App: React.FC = () => {
           <Grid item xs={12} md={6} lg={4}>
             {renderServicesCard()}
           </Grid>
-          <Grid item xs={12} md={6} lg={4}>
-            {renderCommandHistory()}
+          <Grid item xs={12} md={12} lg={4}>
+            {renderCommandsPanel()}
           </Grid>
-          <Grid item xs={12} md={6}>
-            {renderSavedCommands()}
-          </Grid>
-          <Grid item xs={12}>
+          <Grid item xs={12} md={8}>
             {renderWorkspacePanel()}
           </Grid>
-          <Grid item xs={12}>
+          <Grid item xs={12} md={4}>
             {renderLogs()}
           </Grid>
         </Grid>

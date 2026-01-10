@@ -53,6 +53,9 @@ import {
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   Psychology as PsychologyIcon,
+  Help as HelpIcon,
+  PlayArrow as PlayArrowIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 
 // Types
@@ -142,6 +145,8 @@ const App: React.FC = () => {
   const [selectedCommand, setSelectedCommand] = useState<CommandHistory | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [useNlp, setUseNlp] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -319,24 +324,38 @@ const App: React.FC = () => {
   const renderConnectionStatus = () => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       {connected ? (
-        <Chip
-          icon={<CheckCircleIcon />}
-          label="Connected"
-          color="success"
-          size="small"
-        />
-      ) : (
-        <>
+        <Tooltip title="Connected to WebSocket server at ws://127.0.0.1:8766">
           <Chip
-            icon={<CancelIcon />}
-            label={reconnectAttempts > 0 ? `Reconnecting (${reconnectAttempts})` : "Disconnected"}
-            color="error"
+            icon={<CheckCircleIcon />}
+            label="Connected"
+            color="success"
             size="small"
           />
+        </Tooltip>
+      ) : (
+        <>
+          <Tooltip title="Disconnected from WebSocket server. Attempting to reconnect...">
+            <Chip
+              icon={<CancelIcon />}
+              label={reconnectAttempts > 0 ? `Reconnecting (${reconnectAttempts})` : "Disconnected"}
+              color="error"
+              size="small"
+            />
+          </Tooltip>
           <CircularProgress size={16} />
         </>
       )}
-      <Tooltip title="Toggle dark mode">
+      <Tooltip title="View documentation and feature guide">
+        <IconButton size="small" onClick={() => setShowHelp(true)} color="inherit">
+          <HelpIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Start guided tour">
+        <IconButton size="small" onClick={() => setShowTour(true)} color="inherit">
+          <PlayArrowIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Toggle dark/light mode">
         <IconButton size="small" onClick={() => setDarkMode(!darkMode)} color="inherit">
           {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>
@@ -652,48 +671,56 @@ const App: React.FC = () => {
           <CardContent>
             <Stack spacing={2}>
               <Stack direction="row" spacing={2} alignItems="center">
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder={useNlp ? "Enter natural language command..." : "Enter shell command..."}
-                  value={commandInput}
-                  onChange={(e) => setCommandInput(e.target.value)}
-                  onKeyPress={handleCommandKeyPress}
-                  disabled={!connected}
-                  InputProps={{
-                    startAdornment: useNlp ? (
-                      <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    ) : (
-                      <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />
-                    ),
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  onClick={sendCommand}
-                  disabled={!connected || !commandInput.trim()}
-                  endIcon={<SendIcon />}
-                >
-                  Run
-                </Button>
-              </Stack>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={useNlp}
-                    onChange={(e) => setUseNlp(e.target.checked)}
-                    color="primary"
+                <Tooltip title={useNlp ? "Type natural language like 'show files' or 'what's the git status'" : "Enter shell commands like 'ls -la' or 'git status'. Press Enter to execute."}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder={useNlp ? "Enter natural language command..." : "Enter shell command..."}
+                    value={commandInput}
+                    onChange={(e) => setCommandInput(e.target.value)}
+                    onKeyPress={handleCommandKeyPress}
+                    disabled={!connected}
+                    InputProps={{
+                      startAdornment: useNlp ? (
+                        <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      ) : (
+                        <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />
+                      ),
+                    }}
                   />
-                }
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PsychologyIcon fontSize="small" />
-                    <Typography variant="body2">
-                      Natural Language Processing (AI-powered command translation)
-                    </Typography>
-                  </Box>
-                }
-              />
+                </Tooltip>
+                <Tooltip title="Execute the command (or press Enter)">
+                  <span>
+                    <Button
+                      variant="contained"
+                      onClick={sendCommand}
+                      disabled={!connected || !commandInput.trim()}
+                      endIcon={<SendIcon />}
+                    >
+                      Run
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Stack>
+              <Tooltip title="Enable to use natural language commands powered by Ollama AI. Translates plain English into shell commands or detects MCP tool requests.">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={useNlp}
+                      onChange={(e) => setUseNlp(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PsychologyIcon fontSize="small" />
+                      <Typography variant="body2">
+                        Natural Language Processing (AI-powered command translation)
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Tooltip>
             </Stack>
           </CardContent>
         </Card>
@@ -814,6 +841,300 @@ const App: React.FC = () => {
             <Button onClick={() => setSelectedCommand(null)}>Close</Button>
           </DialogActions>
         </Dialog>
+      )}
+
+      {/* Help/Documentation Dialog */}
+      <Dialog
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <HelpIcon color="primary" />
+            Dashboard Documentation & Features
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            {/* Command Execution Section */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <SendIcon color="primary" fontSize="small" />
+                Command Execution
+              </Typography>
+              <Typography variant="body2" paragraph>
+                Execute shell commands directly from the dashboard with two modes:
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemIcon><CodeIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText
+                    primary="Shell Mode (Default)"
+                    secondary="Execute standard shell commands like 'ls -la', 'git status', or 'npm install'"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><PsychologyIcon fontSize="small" color="primary" /></ListItemIcon>
+                  <ListItemText
+                    primary="Natural Language Mode (NLP)"
+                    secondary="Use plain English like 'show directory contents' or 'what's the git status'. Powered by Ollama AI."
+                  />
+                </ListItem>
+              </List>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                💡 Press Enter to execute commands quickly
+              </Alert>
+            </Box>
+
+            <Divider />
+
+            {/* NLP Feature */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PsychologyIcon color="primary" fontSize="small" />
+                Natural Language Processing
+              </Typography>
+              <Typography variant="body2" paragraph>
+                When enabled, the NLP feature translates your natural language input into shell commands or MCP tool calls:
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText
+                    primary="Shell Translation"
+                    secondary="'list files' → 'ls -la' • 'get current branch' → 'git branch --show-current'"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary="Tool Detection"
+                    secondary="'start the backend' → detects 'start_service' MCP tool with parameters"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary="Confidence Scoring"
+                    secondary="Each translation shows confidence level (0.0-1.0) in the logs"
+                  />
+                </ListItem>
+              </List>
+            </Box>
+
+            <Divider />
+
+            {/* Project Detection */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CubesIcon color="primary" fontSize="small" />
+                Project Detection
+              </Typography>
+              <Typography variant="body2" paragraph>
+                Automatically detects your project type and configuration including:
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText primary="Python (FastAPI, Django, Flask)" />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Node.js (React, Express)" />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Git repository and branch info" />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Virtual environment detection" />
+                </ListItem>
+              </List>
+              <Typography variant="body2" color="text.secondary">
+                Use the MCP server's 'detect_project' tool to scan your workspace
+              </Typography>
+            </Box>
+
+            <Divider />
+
+            {/* Services */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ServerIcon color="primary" fontSize="small" />
+                Running Services
+              </Typography>
+              <Typography variant="body2" paragraph>
+                Monitor and control background services:
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText
+                    primary="View active services"
+                    secondary="See process IDs (PID), ports, and start times"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary="Stop services"
+                    secondary="Click the red Stop button to terminate a service"
+                  />
+                </ListItem>
+              </List>
+            </Box>
+
+            <Divider />
+
+            {/* Guardrails */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WarningIcon color="warning" fontSize="small" />
+                Guardrails & Approvals
+              </Typography>
+              <Typography variant="body2" paragraph>
+                Dangerous commands require your explicit approval:
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText
+                    primary="Blocked Commands"
+                    secondary="Commands like 'rm -rf /' are automatically blocked"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary="Approval Required"
+                    secondary="Commands like 'git push --force' or 'sudo' require confirmation"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary="Review Dialog"
+                    secondary="See full command details before approving or rejecting"
+                  />
+                </ListItem>
+              </List>
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                ⚠️ Always review approval dialogs carefully before confirming
+              </Alert>
+            </Box>
+
+            <Divider />
+
+            {/* Features Overview */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <InfoIcon color="primary" fontSize="small" />
+                Additional Features
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemIcon><Brightness4Icon fontSize="small" /></ListItemIcon>
+                  <ListItemText
+                    primary="Dark/Light Mode"
+                    secondary="Toggle theme with the sun/moon icon"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><ErrorIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText
+                    primary="Log Filtering"
+                    secondary="Filter logs by level: All, Info, Warning, Error"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><CodeIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText
+                    primary="Command History"
+                    secondary="Click any command to see full details and exit codes"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><SyncIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText
+                    primary="Auto Reconnect"
+                    secondary="Dashboard automatically reconnects to WebSocket server"
+                  />
+                </ListItem>
+              </List>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setShowHelp(false); setShowTour(true); }} startIcon={<PlayArrowIcon />}>
+            Start Tour
+          </Button>
+          <Button onClick={() => setShowHelp(false)} variant="contained">
+            Got It
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Guided Tour Overlay */}
+      {showTour && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setShowTour(false)}
+        >
+          <Paper
+            sx={{ p: 4, maxWidth: 500, m: 2 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PlayArrowIcon color="primary" />
+              Dashboard Tour
+            </Typography>
+            <Typography variant="body1" paragraph>
+              Welcome to the Dev Orchestrator Dashboard!
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="1. Try the Command Input"
+                  secondary="Type 'ls -la' or enable NLP and try 'show files'"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="2. Toggle NLP Mode"
+                  secondary="Enable the switch to use natural language"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="3. Check the Logs"
+                  secondary="Filter logs to see command execution details"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="4. View Command History"
+                  secondary="Click any command to see full details"
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="5. Try Dark Mode"
+                  secondary="Toggle the theme with the sun/moon icon"
+                />
+              </ListItem>
+            </List>
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+              <Button onClick={() => setShowTour(false)} variant="outlined">
+                Skip Tour
+              </Button>
+              <Button onClick={() => setShowTour(false)} variant="contained">
+                Let's Go!
+              </Button>
+            </Stack>
+          </Paper>
+        </Box>
       )}
       </Box>
     </ThemeProvider>

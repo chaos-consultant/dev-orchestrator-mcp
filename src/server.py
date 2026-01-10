@@ -428,8 +428,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         
         elif name == "check_ports":
             ports = arguments.get("ports", [3000, 3333, 5173, 8000, 8080, 8765, 8766])
+            ports_pattern = "|".join(map(str, ports))
             result = await executor.execute(
-                f"lsof -i -P -n | grep LISTEN | grep -E ':{\"|\".join(map(str, ports))}'",
+                f"lsof -i -P -n | grep LISTEN | grep -E ':{ports_pattern}'",
                 os.getcwd()
             )
             

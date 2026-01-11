@@ -12,6 +12,8 @@ from .executor import ShellExecutor
 from .nlp_service import get_nlp_service
 from .workspace_manager import WorkspaceManager
 from .plugins import get_plugin_manager
+from .plugins.detector import PluginDetector
+from .plugins.health_monitor import PluginHealthMonitor
 from datetime import datetime
 
 
@@ -314,6 +316,74 @@ class WebSocketServer:
                 }))
                 if success:
                     await self.state_manager.log("INFO", f"Tool {tool_name} {'enabled' if enabled else 'disabled'}")
+
+        elif msg_type == "detect_plugins":
+            try:
+                detector = PluginDetector()
+                plugins = await detector.detect_installed_plugins()
+                await self.state_manager.log("INFO", f"Detected {len(plugins)} installed MCP servers")
+                await websocket.send(json.dumps({
+                    "type": "detected_plugins",
+                    "data": plugins
+                }))
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to detect plugins: {str(e)}")
+                await websocket.send(json.dumps({
+                    "type": "detected_plugins",
+                    "data": [],
+                    "error": str(e)
+                }))
+
+        elif msg_type == "check_plugin_health":
+            plugin_id = data.get("plugin_id")
+            if plugin_id:
+                try:
+                    detector = PluginDetector()
+                    plugins = await detector.detect_installed_plugins()
+                    plugin_info = next((p for p in plugins if p['id'] == plugin_id), None)
+
+                    if plugin_info:
+                        monitor = PluginHealthMonitor()
+                        health = await monitor.check_plugin_health(plugin_info)
+                        await self.state_manager.log("INFO", f"Health check for {plugin_id}: {health.status.value}")
+                        await websocket.send(json.dumps({
+                            "type": "plugin_health",
+                            "data": health.to_dict()
+                        }))
+                    else:
+                        await websocket.send(json.dumps({
+                            "type": "plugin_health",
+                            "data": None,
+                            "error": f"Plugin '{plugin_id}' not found"
+                        }))
+                except Exception as e:
+                    await self.state_manager.log("ERROR", f"Failed to check plugin health: {str(e)}")
+                    await websocket.send(json.dumps({
+                        "type": "plugin_health",
+                        "data": None,
+                        "error": str(e)
+                    }))
+
+        elif msg_type == "check_all_plugins_health":
+            try:
+                detector = PluginDetector()
+                plugins = await detector.detect_installed_plugins()
+                monitor = PluginHealthMonitor()
+                health_checks = await monitor.check_all_plugins_health(plugins)
+
+                health_data = [health.to_dict() for health in health_checks]
+                await self.state_manager.log("INFO", f"Checked health of {len(health_data)} plugins")
+                await websocket.send(json.dumps({
+                    "type": "all_plugins_health",
+                    "data": health_data
+                }))
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to check all plugins health: {str(e)}")
+                await websocket.send(json.dumps({
+                    "type": "all_plugins_health",
+                    "data": [],
+                    "error": str(e)
+                }))
 
         elif msg_type == "configure_nlp":
             # Configure NLP settings

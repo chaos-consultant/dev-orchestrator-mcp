@@ -68,6 +68,7 @@ import {
 } from '@mui/icons-material';
 
 import PluginsPanel from './components/PluginsPanel';
+import PluginHealthWidget from './components/PluginHealthWidget';
 import Sidebar from './components/Sidebar';
 import GuidedTour from './components/GuidedTour';
 import NLPSettings from './components/NLPSettings';
@@ -176,6 +177,25 @@ interface Plugin {
   tools: PluginTool[];
 }
 
+interface HealthStatus {
+  plugin_id: string;
+  status: 'healthy' | 'degraded' | 'down' | 'unknown';
+  response_time_ms: number | null;
+  error_message: string | null;
+  tools_count: number | null;
+  last_checked: number;
+}
+
+interface DetectedPlugin {
+  id: string;
+  name: string;
+  install_path: string;
+  source: 'dev-orchestrator' | 'system' | 'user';
+  git_url?: string;
+  version?: string;
+  config_file?: string;
+}
+
 interface AppState {
   current_project?: ProjectProfile;
   services: Record<string, Service>;
@@ -242,6 +262,9 @@ const App: React.FC = () => {
   const [nlpSettingsOpen, setNlpSettingsOpen] = useState(false);
   const [nlpConfig, setNlpConfig] = useState<any>(null);
   const [repoFilter, setRepoFilter] = useState('');
+  const [healthStatuses, setHealthStatuses] = useState<Record<string, HealthStatus>>({});
+  const [detectedPlugins, setDetectedPlugins] = useState<DetectedPlugin[]>([]);
+  const [checkingHealth, setCheckingHealth] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -526,6 +549,27 @@ const App: React.FC = () => {
           wsRef.current.send(JSON.stringify({ type: 'list_plugins' }));
         }
         break;
+      case 'detected_plugins':
+        setDetectedPlugins(data.data as DetectedPlugin[]);
+        break;
+      case 'plugin_health':
+        if (data.data) {
+          setHealthStatuses(prev => ({
+            ...prev,
+            [data.data.plugin_id]: data.data as HealthStatus
+          }));
+        }
+        break;
+      case 'all_plugins_health':
+        if (data.data && Array.isArray(data.data)) {
+          const healthMap: Record<string, HealthStatus> = {};
+          data.data.forEach((health: HealthStatus) => {
+            healthMap[health.plugin_id] = health;
+          });
+          setHealthStatuses(healthMap);
+        }
+        setCheckingHealth(false);
+        break;
     }
   }, []);
 
@@ -724,6 +768,38 @@ const App: React.FC = () => {
           plugin_id: pluginId,
           tool_name: toolName,
           enabled: enabled,
+        })
+      );
+    }
+  };
+
+  const handleDetectPlugins = async () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'detect_plugins',
+        })
+      );
+    }
+  };
+
+  const handleCheckPluginHealth = async (pluginId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'check_plugin_health',
+          plugin_id: pluginId,
+        })
+      );
+    }
+  };
+
+  const handleCheckAllPluginsHealth = async () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setCheckingHealth(true);
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'check_all_plugins_health',
         })
       );
     }
@@ -1373,6 +1449,16 @@ const App: React.FC = () => {
         <Grid item xs={12} md={6} lg={4}>
           {Object.values(state?.services || {}).length > 0 && renderServicesCard()}
         </Grid>
+        {(state?.plugins || []).filter(p => p.enabled).length > 0 && (
+          <Grid item xs={12} md={6} lg={4}>
+            <PluginHealthWidget
+              plugins={state?.plugins || []}
+              healthStatuses={healthStatuses}
+              onCheckAllHealth={handleCheckAllPluginsHealth}
+              checking={checkingHealth}
+            />
+          </Grid>
+        )}
       </Grid>
     </>
   );
@@ -1388,11 +1474,15 @@ const App: React.FC = () => {
             <CardContent>
               <PluginsPanel
                 plugins={state?.plugins || []}
+                detectedPlugins={detectedPlugins}
+                healthStatuses={healthStatuses}
                 onInstallPlugin={handleInstallPlugin}
                 onUninstallPlugin={handleUninstallPlugin}
                 onTogglePlugin={handleTogglePlugin}
                 onToggleTool={handleToggleTool}
                 onCreatePlugin={handleCreatePlugin}
+                onDetectPlugins={handleDetectPlugins}
+                onCheckHealth={handleCheckPluginHealth}
               />
             </CardContent>
           </Card>

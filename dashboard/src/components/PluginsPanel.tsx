@@ -36,6 +36,12 @@ import {
   GitHub as GitHubIcon,
   Store as StoreIcon,
   Code as CodeIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  HelpOutline as HelpOutlineIcon,
+  Refresh as RefreshIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import PluginMarketplace from './PluginMarketplace';
 import PluginCreator from './PluginCreator';
@@ -59,15 +65,39 @@ interface Plugin {
   enabled: boolean;
   install_path: string;
   tools: PluginTool[];
+  source?: 'dev-orchestrator' | 'system' | 'user';
+}
+
+interface HealthStatus {
+  plugin_id: string;
+  status: 'healthy' | 'degraded' | 'down' | 'unknown';
+  response_time_ms: number | null;
+  error_message: string | null;
+  tools_count: number | null;
+  last_checked: number;
+}
+
+interface DetectedPlugin {
+  id: string;
+  name: string;
+  install_path: string;
+  source: 'dev-orchestrator' | 'system' | 'user';
+  git_url?: string;
+  version?: string;
+  config_file?: string;
 }
 
 interface PluginsPanelProps {
   plugins: Plugin[];
+  detectedPlugins?: DetectedPlugin[];
+  healthStatuses?: Record<string, HealthStatus>;
   onInstallPlugin: (gitUrl: string) => Promise<void>;
   onUninstallPlugin: (pluginId: string) => Promise<void>;
   onTogglePlugin: (pluginId: string, enabled: boolean) => Promise<void>;
   onToggleTool: (pluginId: string, toolName: string, enabled: boolean) => Promise<void>;
   onCreatePlugin: (pluginData: any) => Promise<void>;
+  onDetectPlugins?: () => Promise<void>;
+  onCheckHealth?: (pluginId: string) => Promise<void>;
 }
 
 // Styled components with macOS aesthetic
@@ -87,19 +117,25 @@ const PluginCard = styled(Card)(({ theme }) => ({
 
 const PluginsPanel: React.FC<PluginsPanelProps> = ({
   plugins,
+  detectedPlugins,
+  healthStatuses,
   onInstallPlugin,
   onUninstallPlugin,
   onTogglePlugin,
   onToggleTool,
   onCreatePlugin,
+  onDetectPlugins,
+  onCheckHealth,
 }) => {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
+  const [showDetected, setShowDetected] = useState(false);
   const [gitUrl, setGitUrl] = useState('');
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedPlugin, setExpandedPlugin] = useState<string | null>(null);
+  const [checkingHealth, setCheckingHealth] = useState<string | null>(null);
 
   const handleInstall = async () => {
     if (!gitUrl.trim()) {
@@ -151,6 +187,56 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
     setExpandedPlugin(isExpanded ? pluginId : null);
   };
 
+  const handleCheckHealth = async (pluginId: string) => {
+    if (!onCheckHealth) return;
+
+    setCheckingHealth(pluginId);
+    try {
+      await onCheckHealth(pluginId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Health check failed');
+    } finally {
+      setCheckingHealth(null);
+    }
+  };
+
+  const handleDetectPlugins = async () => {
+    if (!onDetectPlugins) return;
+
+    try {
+      await onDetectPlugins();
+      setShowDetected(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Detection failed');
+    }
+  };
+
+  const getHealthIcon = (status: HealthStatus['status']) => {
+    switch (status) {
+      case 'healthy':
+        return <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} />;
+      case 'degraded':
+        return <WarningIcon sx={{ fontSize: 16, color: 'warning.main' }} />;
+      case 'down':
+        return <ErrorIcon sx={{ fontSize: 16, color: 'error.main' }} />;
+      default:
+        return <HelpOutlineIcon sx={{ fontSize: 16, color: 'text.disabled' }} />;
+    }
+  };
+
+  const getHealthColor = (status: HealthStatus['status']) => {
+    switch (status) {
+      case 'healthy':
+        return 'success';
+      case 'degraded':
+        return 'warning';
+      case 'down':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
   return (
     <>
       <Card sx={{ height: '100%' }}>
@@ -159,6 +245,18 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
           title="Plugins"
           action={
             <Stack direction="row" spacing={1}>
+              {onDetectPlugins && (
+                <Tooltip title="Detect already-installed MCP servers">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<VisibilityIcon />}
+                    onClick={handleDetectPlugins}
+                  >
+                    Detect
+                  </Button>
+                </Tooltip>
+              )}
               <Button
                 variant="outlined"
                 size="small"
@@ -230,6 +328,50 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
                           )}
                         </Box>
                         <Stack direction="row" spacing={1} alignItems="center" onClick={(e) => e.stopPropagation()}>
+                          {healthStatuses?.[plugin.id] && (
+                            <Tooltip
+                              title={
+                                <Box>
+                                  <Typography variant="caption" display="block">
+                                    Status: {healthStatuses[plugin.id].status}
+                                  </Typography>
+                                  {healthStatuses[plugin.id].response_time_ms && (
+                                    <Typography variant="caption" display="block">
+                                      Response: {healthStatuses[plugin.id].response_time_ms.toFixed(0)}ms
+                                    </Typography>
+                                  )}
+                                  {healthStatuses[plugin.id].error_message && (
+                                    <Typography variant="caption" display="block" color="error">
+                                      {healthStatuses[plugin.id].error_message}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            >
+                              <Chip
+                                icon={getHealthIcon(healthStatuses[plugin.id].status)}
+                                label={healthStatuses[plugin.id].status}
+                                size="small"
+                                color={getHealthColor(healthStatuses[plugin.id].status) as any}
+                                variant="outlined"
+                              />
+                            </Tooltip>
+                          )}
+                          {onCheckHealth && (
+                            <Tooltip title="Check health">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleCheckHealth(plugin.id)}
+                                disabled={checkingHealth === plugin.id}
+                              >
+                                {checkingHealth === plugin.id ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <RefreshIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Chip
                             label={`${plugin.tools.length} tools`}
                             size="small"
@@ -404,6 +546,78 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
         onClose={() => setShowCreator(false)}
         onCreatePlugin={onCreatePlugin}
       />
+
+      {/* Detected Plugins Dialog */}
+      <Dialog
+        open={showDetected}
+        onClose={() => setShowDetected(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Detected MCP Servers</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Found {detectedPlugins?.length || 0} MCP server(s) installed on your system.
+          </Typography>
+
+          {(!detectedPlugins || detectedPlugins.length === 0) ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <ExtensionIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="body2" color="text.secondary">
+                No MCP servers detected
+              </Typography>
+            </Box>
+          ) : (
+            <List>
+              {detectedPlugins.map((detected) => (
+                <ListItem
+                  key={detected.id}
+                  sx={{
+                    borderRadius: 1,
+                    mb: 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="subtitle2">{detected.name}</Typography>
+                        <Chip
+                          label={detected.source}
+                          size="small"
+                          variant="outlined"
+                          color={detected.source === 'dev-orchestrator' ? 'primary' : 'default'}
+                        />
+                      </Box>
+                    }
+                    secondary={
+                      <Stack spacing={0.5} sx={{ mt: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Path: {detected.install_path}
+                        </Typography>
+                        {detected.git_url && (
+                          <Typography variant="caption" color="text.secondary">
+                            URL: {detected.git_url}
+                          </Typography>
+                        )}
+                        {detected.config_file && (
+                          <Typography variant="caption" color="text.secondary">
+                            Config: {detected.config_file}
+                          </Typography>
+                        )}
+                      </Stack>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDetected(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

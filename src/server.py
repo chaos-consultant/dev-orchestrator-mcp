@@ -23,6 +23,8 @@ from .notifications import get_notifier
 from .state import get_state_manager, ServiceInfo
 from .workspace_manager import WorkspaceManager
 from .plugins import get_plugin_manager
+from .plugins.detector import PluginDetector
+from .plugins.health_monitor import PluginHealthMonitor
 from .templates.plugin_creator import PluginCreator
 from .templates.extension_creator import ExtensionCreator
 
@@ -518,6 +520,36 @@ async def list_tools():
                 "required": ["name", "service_type"]
             }
         ),
+        Tool(
+            name="detect_installed_plugins",
+            description="Detect all MCP servers already installed on the system (dev-orchestrator, Claude Desktop, Cursor, etc.). Returns list of detected plugins with their installation locations and metadata.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="check_plugin_health",
+            description="Check health status of a specific MCP server plugin. Verifies the plugin is functioning correctly by sending a list_tools request and measuring response time.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "plugin_id": {
+                        "type": "string",
+                        "description": "Plugin ID to check"
+                    }
+                },
+                "required": ["plugin_id"]
+            }
+        ),
+        Tool(
+            name="check_all_plugins_health",
+            description="Check health status of all installed MCP server plugins. Returns health status for each plugin including response times and tool counts.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
     ]
 
 
@@ -959,6 +991,52 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     "success": False,
                     "error": str(e)
                 }, indent=2))]
+
+        elif name == "detect_installed_plugins":
+            detector = PluginDetector()
+            plugins = await detector.detect_installed_plugins()
+
+            await state_manager.log("INFO", f"Detected {len(plugins)} installed MCP servers")
+            return [TextContent(type="text", text=json.dumps({
+                "total_detected": len(plugins),
+                "plugins": plugins
+            }, indent=2))]
+
+        elif name == "check_plugin_health":
+            plugin_id = arguments["plugin_id"]
+
+            # First detect the plugin to get its info
+            detector = PluginDetector()
+            plugins = await detector.detect_installed_plugins()
+
+            plugin_info = next((p for p in plugins if p['id'] == plugin_id), None)
+
+            if not plugin_info:
+                return [TextContent(type="text", text=json.dumps({
+                    "error": f"Plugin '{plugin_id}' not found"
+                }, indent=2))]
+
+            # Check health
+            monitor = PluginHealthMonitor()
+            health = await monitor.check_plugin_health(plugin_info)
+
+            await state_manager.log("INFO", f"Health check for {plugin_id}: {health.status.value}")
+            return [TextContent(type="text", text=json.dumps(health.to_dict(), indent=2))]
+
+        elif name == "check_all_plugins_health":
+            # Detect all installed plugins
+            detector = PluginDetector()
+            plugins = await detector.detect_installed_plugins()
+
+            # Check health of all plugins
+            monitor = PluginHealthMonitor()
+            health_results = await monitor.check_all_plugins_health(plugins)
+
+            await state_manager.log("INFO", f"Checked health of {len(health_results)} plugins")
+            return [TextContent(type="text", text=json.dumps({
+                "total_checked": len(health_results),
+                "health_results": [h.to_dict() for h in health_results]
+            }, indent=2))]
 
         else:
             return [TextContent(type="text", text=f'{{"error": "Unknown tool: {name}"}}')]

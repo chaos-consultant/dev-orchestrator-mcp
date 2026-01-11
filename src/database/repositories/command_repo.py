@@ -95,6 +95,7 @@ class CommandRepository(BaseRepository[Command]):
         stdout: Optional[str] = None,
         stderr: Optional[str] = None,
         project_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> Command:
         """Add a new command to history."""
         cmd = Command(
@@ -105,7 +106,7 @@ class CommandRepository(BaseRepository[Command]):
             exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
-            timestamp=datetime.now(),
+            timestamp=timestamp or datetime.now(),
             project_id=project_id,
         )
         return await self.add(cmd)

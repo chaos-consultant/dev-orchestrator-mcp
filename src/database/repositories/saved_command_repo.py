@@ -42,6 +42,7 @@ class SavedCommandRepository(BaseRepository[SavedCommand]):
         cwd: Optional[str] = None,
         description: Optional[str] = None,
         tag_names: Optional[List[str]] = None,
+        created_at: Optional[datetime] = None,
     ) -> SavedCommand:
         """
         Add a new saved command with optional tags.
@@ -52,6 +53,7 @@ class SavedCommandRepository(BaseRepository[SavedCommand]):
             cwd: Working directory
             description: Optional description
             tag_names: List of tag names to apply
+            created_at: Optional creation timestamp (defaults to now)
         """
         saved_cmd = SavedCommand(
             id=str(uuid.uuid4()),
@@ -59,7 +61,7 @@ class SavedCommandRepository(BaseRepository[SavedCommand]):
             command=command,
             cwd=cwd,
             description=description,
-            created_at=datetime.now(),
+            created_at=created_at or datetime.now(),
         )
 
         self.session.add(saved_cmd)

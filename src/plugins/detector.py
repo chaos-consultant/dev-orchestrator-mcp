@@ -1,6 +1,7 @@
 """Plugin detection system to identify already-installed MCP servers."""
 
 import json
+import platform
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -12,14 +13,38 @@ class PluginDetector:
         self.home = Path.home()
         self.dev_orchestrator_dir = self.home / ".dev-orchestrator"
         self.plugins_dir = self.dev_orchestrator_dir / "plugins"
+        self.config_locations = self._get_config_locations()
 
-        # Common MCP client config locations
-        self.config_locations = [
-            self.home / ".config" / "claude" / "claude_desktop_config.json",  # Claude Desktop
-            self.home / ".config" / "cursor" / "mcp.json",  # Cursor
-            self.home / ".config" / "mcp" / "config.json",  # Generic MCP
-            self.home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",  # macOS Claude
-        ]
+    def _get_config_locations(self) -> List[Path]:
+        """Get platform-specific MCP config file locations."""
+        locations = []
+        system = platform.system()
+
+        if system == "Darwin":  # macOS
+            locations.extend([
+                self.home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
+                self.home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "mcp.json",
+                self.home / ".config" / "claude" / "claude_desktop_config.json",
+                self.home / ".config" / "cursor" / "mcp.json",
+            ])
+        elif system == "Windows":  # Windows
+            appdata = Path.home() / "AppData"
+            locations.extend([
+                appdata / "Roaming" / "Claude" / "claude_desktop_config.json",
+                appdata / "Roaming" / "Cursor" / "User" / "globalStorage" / "mcp.json",
+            ])
+        else:  # Linux and others
+            locations.extend([
+                self.home / ".config" / "claude" / "claude_desktop_config.json",
+                self.home / ".config" / "Claude" / "claude_desktop_config.json",
+                self.home / ".config" / "cursor" / "mcp.json",
+                self.home / ".config" / "Cursor" / "mcp.json",
+            ])
+
+        # Generic MCP config location (all platforms)
+        locations.append(self.home / ".config" / "mcp" / "config.json")
+
+        return locations
 
     async def detect_installed_plugins(self) -> List[Dict]:
         """Detect all installed MCP servers.

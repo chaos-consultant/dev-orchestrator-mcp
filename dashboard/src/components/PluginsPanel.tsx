@@ -35,6 +35,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   GitHub as GitHubIcon,
   Store as StoreIcon,
+  Code as CodeIcon,
 } from '@mui/icons-material';
 import PluginMarketplace from './PluginMarketplace';
 import PluginCreator from './PluginCreator';

@@ -698,6 +698,12 @@ const App: React.FC = () => {
     }
   };
 
+  const sendMessage = (message: any) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+    }
+  };
+
   const handleTogglePlugin = async (pluginId: string, enabled: boolean) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(

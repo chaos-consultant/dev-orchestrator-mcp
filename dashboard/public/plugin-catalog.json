@@ -14,17 +14,18 @@
   "plugins": [
     {
       "id": "anthropic-github",
-      "name": "GitHub Integration (Official)",
-      "description": "Official Anthropic GitHub MCP server. Create issues, PRs, manage repositories, search code, and interact with GitHub's full API.",
+      "name": "GitHub Integration (Official - Archived)",
+      "description": "⚠️ ARCHIVED - No longer maintained. Official Anthropic GitHub MCP server moved to archived repository. Create issues, PRs, manage repositories, search code, and interact with GitHub's full API.",
       "author": "Anthropic",
       "author_url": "https://anthropic.com",
       "category": "version-control",
-      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "git_url": "https://github.com/modelcontextprotocol/servers-archived.git",
       "subdirectory": "src/github",
       "version": "0.5.0",
       "mcp_version": "1.0",
       "verified": true,
       "verification_level": "anthropic-official",
+      "deprecated": true,
       "tools": [
         "create_or_update_file",
         "push_files",
@@ -45,24 +46,25 @@
       "required_env": [
         "GITHUB_PERSONAL_ACCESS_TOKEN"
       ],
-      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+      "documentation_url": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/github",
       "downloads": 15234,
       "rating": 4.9,
-      "security_notes": "Requires GitHub personal access token. Scope: repo, user. Official Anthropic server with full security audit."
+      "security_notes": "⚠️ ARCHIVED - NO SECURITY GUARANTEES. Requires GitHub personal access token. Scope: repo, user. Consider using maintained alternatives."
     },
     {
       "id": "anthropic-slack",
-      "name": "Slack Integration (Official)",
-      "description": "Official Anthropic Slack MCP server. Send messages, list channels, get users, and integrate with your Slack workspace.",
+      "name": "Slack Integration (Official - Archived)",
+      "description": "⚠️ ARCHIVED - No longer maintained. Official Anthropic Slack MCP server moved to archived repository. Send messages, list channels, get users, and integrate with your Slack workspace.",
       "author": "Anthropic",
       "author_url": "https://anthropic.com",
       "category": "communication",
-      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "git_url": "https://github.com/modelcontextprotocol/servers-archived.git",
       "subdirectory": "src/slack",
       "version": "0.4.0",
       "mcp_version": "1.0",
       "verified": true,
       "verification_level": "anthropic-official",
+      "deprecated": true,
       "tools": [
         "slack_list_channels",
         "slack_post_message",
@@ -79,24 +81,25 @@
         "SLACK_BOT_TOKEN",
         "SLACK_TEAM_ID"
       ],
-      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
+      "documentation_url": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/slack",
       "downloads": 8432,
       "rating": 4.7,
-      "security_notes": "Requires Slack Bot token. Official Anthropic server with security review."
+      "security_notes": "⚠️ ARCHIVED - NO SECURITY GUARANTEES. Requires Slack Bot token. Consider using maintained alternatives."
     },
     {
       "id": "anthropic-postgres",
-      "name": "PostgreSQL Database (Official)",
-      "description": "Official Anthropic PostgreSQL MCP server. Execute SQL queries, manage schemas, and interact with PostgreSQL databases safely.",
+      "name": "PostgreSQL Database (Official - Archived)",
+      "description": "⚠️ ARCHIVED - No longer maintained. Official Anthropic PostgreSQL MCP server moved to archived repository. Execute SQL queries, manage schemas, and interact with PostgreSQL databases safely.",
       "author": "Anthropic",
       "author_url": "https://anthropic.com",
       "category": "database",
-      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "git_url": "https://github.com/modelcontextprotocol/servers-archived.git",
       "subdirectory": "src/postgres",
       "version": "0.3.0",
       "mcp_version": "1.0",
       "verified": true,
       "verification_level": "anthropic-official",
+      "deprecated": true,
       "tools": [
         "postgres_query",
         "postgres_list_tables",
@@ -110,24 +113,25 @@
       "required_env": [
         "POSTGRES_CONNECTION_STRING"
       ],
-      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+      "documentation_url": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/postgres",
       "downloads": 6721,
       "rating": 4.6,
-      "security_notes": "⚠️ Database write access. Use read-only credentials when possible. Official Anthropic server."
+      "security_notes": "⚠️ ARCHIVED - NO SECURITY GUARANTEES. Database write access. Use read-only credentials. Consider using maintained alternatives."
     },
     {
       "id": "anthropic-puppeteer",
-      "name": "Puppeteer Browser Automation (Official)",
-      "description": "Official Anthropic Puppeteer MCP server. Automate browser interactions, take screenshots, run tests, and scrape web content.",
+      "name": "Puppeteer Browser Automation (Official - Archived)",
+      "description": "⚠️ ARCHIVED - No longer maintained. Official Anthropic Puppeteer MCP server moved to archived repository. Automate browser interactions, take screenshots, run tests, and scrape web content.",
       "author": "Anthropic",
       "author_url": "https://anthropic.com",
       "category": "web",
-      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "git_url": "https://github.com/modelcontextprotocol/servers-archived.git",
       "subdirectory": "src/puppeteer",
       "version": "0.4.0",
       "mcp_version": "1.0",
       "verified": true,
       "verification_level": "anthropic-official",
+      "deprecated": true,
       "tools": [
         "puppeteer_navigate",
         "puppeteer_screenshot",
@@ -142,10 +146,10 @@
         "npm": ["puppeteer"]
       },
       "required_env": [],
-      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
+      "documentation_url": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/puppeteer",
       "downloads": 9234,
       "rating": 4.8,
-      "security_notes": "⚠️ Can access any website. Review usage carefully. Official Anthropic server."
+      "security_notes": "⚠️ ARCHIVED - NO SECURITY GUARANTEES. Can access any website. Review usage carefully. Consider using maintained alternatives."
     },
     {
       "id": "anthropic-filesystem",
@@ -185,12 +189,12 @@
     {
       "id": "anthropic-brave-search",
       "name": "Brave Search (Official)",
-      "description": "Official Anthropic Brave Search MCP server. Perform web searches using Brave's privacy-focused search API.",
-      "author": "Anthropic",
-      "author_url": "https://anthropic.com",
+      "description": "Official Brave Search MCP server maintained by Brave. Perform web searches using Brave's privacy-focused search API.",
+      "author": "Brave",
+      "author_url": "https://brave.com",
       "category": "web",
-      "git_url": "https://github.com/modelcontextprotocol/servers.git",
-      "subdirectory": "src/brave-search",
+      "git_url": "https://github.com/brave/brave-search-mcp-server.git",
+      "subdirectory": "",
       "version": "0.3.0",
       "mcp_version": "1.0",
       "verified": true,
@@ -206,10 +210,10 @@
       "required_env": [
         "BRAVE_API_KEY"
       ],
-      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+      "documentation_url": "https://github.com/brave/brave-search-mcp-server",
       "downloads": 5432,
       "rating": 4.5,
-      "security_notes": "Requires Brave API key. Official Anthropic server with security review."
+      "security_notes": "Requires Brave API key. Actively maintained by Brave with security review."
     },
     {
       "id": "anthropic-fetch",

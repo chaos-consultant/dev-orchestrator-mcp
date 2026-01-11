@@ -22,6 +22,7 @@ from .executor import ShellExecutor, PendingApproval, CommandStatus
 from .notifications import get_notifier
 from .state import get_state_manager, ServiceInfo
 from .workspace_manager import WorkspaceManager
+from .plugins import get_plugin_manager
 
 
 # Initialize components
@@ -292,6 +293,82 @@ async def list_tools():
                         "description": "Root directory to check (defaults to current workspace)"
                     }
                 }
+            }
+        ),
+        Tool(
+            name="list_plugins",
+            description="List all installed MCP server plugins with their status and tools",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="install_plugin",
+            description="Install a new MCP server plugin from a git repository",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "git_url": {
+                        "type": "string",
+                        "description": "Git repository URL for the plugin"
+                    }
+                },
+                "required": ["git_url"]
+            }
+        ),
+        Tool(
+            name="uninstall_plugin",
+            description="Uninstall an MCP server plugin",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "plugin_id": {
+                        "type": "string",
+                        "description": "Plugin ID to uninstall"
+                    }
+                },
+                "required": ["plugin_id"]
+            }
+        ),
+        Tool(
+            name="toggle_plugin",
+            description="Enable or disable an MCP server plugin and all its tools",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "plugin_id": {
+                        "type": "string",
+                        "description": "Plugin ID to toggle"
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "True to enable, False to disable"
+                    }
+                },
+                "required": ["plugin_id", "enabled"]
+            }
+        ),
+        Tool(
+            name="toggle_plugin_tool",
+            description="Enable or disable a specific tool from a plugin",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "plugin_id": {
+                        "type": "string",
+                        "description": "Plugin ID"
+                    },
+                    "tool_name": {
+                        "type": "string",
+                        "description": "Name of the tool to toggle"
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "True to enable, False to disable"
+                    }
+                },
+                "required": ["plugin_id", "tool_name", "enabled"]
             }
         ),
     ]
@@ -570,6 +647,87 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
 
             return [TextContent(type="text", text=json.dumps(summary, indent=2))]
+
+        elif name == "list_plugins":
+            plugin_manager = get_plugin_manager()
+            plugins = await plugin_manager.list_installed()
+
+            result = {
+                "total_plugins": len(plugins),
+                "plugins": [p.model_dump(mode="json") for p in plugins]
+            }
+
+            await state_manager.log("INFO", f"Listed {len(plugins)} installed plugins")
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "install_plugin":
+            plugin_manager = get_plugin_manager()
+            git_url = arguments["git_url"]
+
+            await state_manager.log("INFO", f"Installing plugin from {git_url}")
+            result = await plugin_manager.install(git_url)
+
+            if result.success:
+                await state_manager.log("INFO", f"Successfully installed plugin: {result.message}")
+            else:
+                await state_manager.log("ERROR", f"Plugin installation failed: {result.message}")
+
+            return [TextContent(type="text", text=json.dumps(result.model_dump(mode="json"), indent=2))]
+
+        elif name == "uninstall_plugin":
+            plugin_manager = get_plugin_manager()
+            plugin_id = arguments["plugin_id"]
+
+            await state_manager.log("INFO", f"Uninstalling plugin {plugin_id}")
+            result = await plugin_manager.uninstall(plugin_id)
+
+            if result.success:
+                await state_manager.log("INFO", f"Successfully uninstalled plugin: {result.message}")
+            else:
+                await state_manager.log("ERROR", f"Plugin uninstall failed: {result.message}")
+
+            return [TextContent(type="text", text=json.dumps(result.model_dump(mode="json"), indent=2))]
+
+        elif name == "toggle_plugin":
+            plugin_manager = get_plugin_manager()
+            plugin_id = arguments["plugin_id"]
+            enabled = arguments["enabled"]
+
+            success = await plugin_manager.toggle(plugin_id, enabled)
+            action = "enabled" if enabled else "disabled"
+
+            if success:
+                await state_manager.log("INFO", f"Plugin {plugin_id} {action}")
+                return [TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "message": f"Plugin {action} successfully"
+                }, indent=2))]
+            else:
+                return [TextContent(type="text", text=json.dumps({
+                    "success": False,
+                    "error": "Plugin not found"
+                }, indent=2))]
+
+        elif name == "toggle_plugin_tool":
+            plugin_manager = get_plugin_manager()
+            plugin_id = arguments["plugin_id"]
+            tool_name = arguments["tool_name"]
+            enabled = arguments["enabled"]
+
+            success = await plugin_manager.toggle_tool(plugin_id, tool_name, enabled)
+            action = "enabled" if enabled else "disabled"
+
+            if success:
+                await state_manager.log("INFO", f"Tool {tool_name} {action} for plugin {plugin_id}")
+                return [TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "message": f"Tool {action} successfully"
+                }, indent=2))]
+            else:
+                return [TextContent(type="text", text=json.dumps({
+                    "success": False,
+                    "error": "Tool not found"
+                }, indent=2))]
 
         else:
             return [TextContent(type="text", text=f'{{"error": "Unknown tool: {name}"}}')]

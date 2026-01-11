@@ -13,6 +13,8 @@ from .models import (
     WorkflowStep,
     Service,
     Log,
+    Plugin,
+    PluginTool,
 )
 
 __all__ = [
@@ -30,4 +32,6 @@ __all__ = [
     "WorkflowStep",
     "Service",
     "Log",
+    "Plugin",
+    "PluginTool",
 ]

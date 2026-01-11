@@ -189,3 +189,40 @@ class Log(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     source: Mapped[str] = mapped_column(String, nullable=False, index=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+
+
+class Plugin(Base):
+    """Installed MCP server plugins table."""
+
+    __tablename__ = "plugins"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    git_url: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    author: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    installed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    install_path: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Relationships
+    tools: Mapped[list["PluginTool"]] = relationship(
+        back_populates="plugin", cascade="all, delete-orphan"
+    )
+
+
+class PluginTool(Base):
+    """Tools provided by plugins table."""
+
+    __tablename__ = "plugin_tools"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    plugin_id: Mapped[str] = mapped_column(
+        String, ForeignKey("plugins.id"), nullable=False, index=True
+    )
+    tool_name: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # Relationships
+    plugin: Mapped["Plugin"] = relationship(back_populates="tools")

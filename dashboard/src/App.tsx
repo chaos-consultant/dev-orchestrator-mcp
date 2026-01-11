@@ -69,6 +69,7 @@ import {
 import PluginsPanel from './components/PluginsPanel';
 import Sidebar from './components/Sidebar';
 import GuidedTour from './components/GuidedTour';
+import NLPSettings from './components/NLPSettings';
 import { dashboardTourSteps, tours } from './tours';
 
 // Types
@@ -236,6 +237,8 @@ const App: React.FC = () => {
   const [savedCommandDesc, setSavedCommandDesc] = useState('');
   const [currentView, setCurrentView] = useState<'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'settings'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [nlpSettingsOpen, setNlpSettingsOpen] = useState(false);
+  const [nlpConfig, setNlpConfig] = useState<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -1422,12 +1425,83 @@ const App: React.FC = () => {
         return renderWorkspacePanel();
       case 'settings':
         return (
-          <Card>
-            <CardHeader title="Settings" />
-            <CardContent>
-              <Typography>Settings view coming soon...</Typography>
-            </CardContent>
-          </Card>
+          <Container maxWidth="lg">
+            <Typography variant="h4" gutterBottom>
+              Settings
+            </Typography>
+            <Stack spacing={3}>
+              <Card>
+                <CardHeader
+                  title="Natural Language Processing"
+                  subheader="Configure NLP providers for command translation"
+                />
+                <CardContent>
+                  <Stack spacing={2}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box>
+                        <Typography variant="body1">NLP Command Translation</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Use natural language to generate shell commands with Ollama, OpenAI, Gemini, or Anthropic
+                        </Typography>
+                      </Box>
+                      <FormControlLabel
+                        control={<Switch checked={useNlp} onChange={(e) => setUseNlp(e.target.checked)} />}
+                        label="Enabled"
+                      />
+                    </Box>
+                    <Divider />
+                    <Button
+                      variant="outlined"
+                      startIcon={<PsychologyIcon />}
+                      onClick={() => setNlpSettingsOpen(true)}
+                    >
+                      Configure NLP Providers
+                    </Button>
+                    {nlpConfig && (
+                      <Alert severity="info">
+                        Primary Provider: {nlpConfig.primaryProvider || 'Not configured'}
+                      </Alert>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader
+                  title="Appearance"
+                  subheader="Customize the dashboard appearance"
+                />
+                <CardContent>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={theme.palette.mode === 'dark'}
+                        onChange={() => {
+                          /* Theme toggle will be implemented */
+                        }}
+                      />
+                    }
+                    label="Dark Mode"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader
+                  title="About"
+                  subheader="Dev Orchestrator version and information"
+                />
+                <CardContent>
+                  <Stack spacing={1}>
+                    <Typography variant="body2">Version: 0.2.0</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      MCP server for Mac dev environment orchestration with guardrails
+                    </Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Stack>
+          </Container>
         );
       default:
         return renderDashboardView();
@@ -1851,6 +1925,18 @@ const App: React.FC = () => {
         run={runTour}
         onComplete={handleTourComplete}
         steps={dashboardTourSteps}
+      />
+
+      {/* NLP Settings Dialog */}
+      <NLPSettings
+        open={nlpSettingsOpen}
+        onClose={() => setNlpSettingsOpen(false)}
+        onSave={(settings) => {
+          setNlpConfig(settings);
+          sendMessage({ type: 'configure_nlp', config: settings });
+          setNlpSettingsOpen(false);
+        }}
+        currentSettings={nlpConfig}
       />
     </ThemeProvider>
   );

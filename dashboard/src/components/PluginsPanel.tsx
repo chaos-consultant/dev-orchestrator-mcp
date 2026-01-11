@@ -37,6 +37,7 @@ import {
   Store as StoreIcon,
 } from '@mui/icons-material';
 import PluginMarketplace from './PluginMarketplace';
+import PluginCreator from './PluginCreator';
 
 // Types
 interface PluginTool {
@@ -65,6 +66,7 @@ interface PluginsPanelProps {
   onUninstallPlugin: (pluginId: string) => Promise<void>;
   onTogglePlugin: (pluginId: string, enabled: boolean) => Promise<void>;
   onToggleTool: (pluginId: string, toolName: string, enabled: boolean) => Promise<void>;
+  onCreatePlugin: (pluginData: any) => Promise<void>;
 }
 
 // Styled components with macOS aesthetic
@@ -88,9 +90,11 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
   onUninstallPlugin,
   onTogglePlugin,
   onToggleTool,
+  onCreatePlugin,
 }) => {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [showCreator, setShowCreator] = useState(false);
   const [gitUrl, setGitUrl] = useState('');
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +173,14 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
                 onClick={() => setShowInstallDialog(true)}
               >
                 Install
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<CodeIcon />}
+                onClick={() => setShowCreator(true)}
+              >
+                Create New
               </Button>
             </Stack>
           }
@@ -383,6 +395,13 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
         open={showMarketplace}
         onClose={() => setShowMarketplace(false)}
         onInstallPlugin={onInstallPlugin}
+      />
+
+      {/* Plugin Creator */}
+      <PluginCreator
+        open={showCreator}
+        onClose={() => setShowCreator(false)}
+        onCreatePlugin={onCreatePlugin}
       />
     </>
   );

@@ -71,6 +71,7 @@ import PluginsPanel from './components/PluginsPanel';
 import Sidebar from './components/Sidebar';
 import GuidedTour from './components/GuidedTour';
 import NLPSettings from './components/NLPSettings';
+import ExtensionsView from './views/ExtensionsView';
 import { dashboardTourSteps, tours } from './tours';
 
 // Types
@@ -680,6 +681,18 @@ const App: React.FC = () => {
         JSON.stringify({
           type: 'uninstall_plugin',
           plugin_id: pluginId,
+        })
+      );
+    }
+  };
+
+  const handleCreatePlugin = async (pluginData: any) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'execute_tool',
+          tool: 'create_plugin',
+          arguments: pluginData,
         })
       );
     }
@@ -1373,19 +1386,13 @@ const App: React.FC = () => {
                 onUninstallPlugin={handleUninstallPlugin}
                 onTogglePlugin={handleTogglePlugin}
                 onToggleTool={handleToggleTool}
+                onCreatePlugin={handleCreatePlugin}
               />
             </CardContent>
           </Card>
         );
       case 'extensions':
-        return (
-          <Card>
-            <CardHeader title="Extensions" />
-            <CardContent>
-              <Typography>Extensions view coming soon...</Typography>
-            </CardContent>
-          </Card>
-        );
+        return <ExtensionsView sendMessage={sendMessage} />;
       case 'workspace':
         return renderWorkspacePanel();
       case 'logs':

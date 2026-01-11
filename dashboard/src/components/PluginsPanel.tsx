@@ -26,7 +26,6 @@ import {
   AccordionDetails,
   Stack,
   Tooltip,
-  alpha,
   styled,
 } from '@mui/material';
 import {
@@ -34,11 +33,10 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   ExpandMore as ExpandMoreIcon,
-  Info as InfoIcon,
   GitHub as GitHubIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
+  Store as StoreIcon,
 } from '@mui/icons-material';
+import PluginMarketplace from './PluginMarketplace';
 
 // Types
 interface PluginTool {
@@ -84,13 +82,6 @@ const PluginCard = styled(Card)(({ theme }) => ({
     : '0 2px 8px rgba(0, 0, 0, 0.1)',
 }));
 
-const ToolChip = styled(Chip)(({ theme }) => ({
-  margin: theme.spacing(0.5),
-  borderRadius: 6,
-  fontSize: '0.75rem',
-  height: 24,
-}));
-
 const PluginsPanel: React.FC<PluginsPanelProps> = ({
   plugins,
   onInstallPlugin,
@@ -99,6 +90,7 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
   onToggleTool,
 }) => {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const [gitUrl, setGitUrl] = useState('');
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,14 +153,24 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
           avatar={<ExtensionIcon />}
           title="Plugins"
           action={
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setShowInstallDialog(true)}
-            >
-              Install
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<StoreIcon />}
+                onClick={() => setShowMarketplace(true)}
+              >
+                Browse
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setShowInstallDialog(true)}
+              >
+                Install
+              </Button>
+            </Stack>
           }
         />
         <CardContent>
@@ -375,6 +377,13 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Plugin Marketplace */}
+      <PluginMarketplace
+        open={showMarketplace}
+        onClose={() => setShowMarketplace(false)}
+        onInstallPlugin={onInstallPlugin}
+      />
     </>
   );
 };

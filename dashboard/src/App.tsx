@@ -67,6 +67,9 @@ import {
 } from '@mui/icons-material';
 
 import PluginsPanel from './components/PluginsPanel';
+import Sidebar from './components/Sidebar';
+import GuidedTour from './components/GuidedTour';
+import { dashboardTourSteps, tours } from './tours';
 
 // Types
 interface ProjectProfile {
@@ -222,11 +225,17 @@ const App: React.FC = () => {
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [useNlp, setUseNlp] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showTour, setShowTour] = useState(false);
+  const [runTour, setRunTour] = useState(false);
+  const [tourCompleted, setTourCompleted] = useState(() => {
+    const completed = localStorage.getItem('tour_completed');
+    return completed ? JSON.parse(completed) : {};
+  });
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [commandToSave, setCommandToSave] = useState<CommandHistory | null>(null);
   const [savedCommandName, setSavedCommandName] = useState('');
   const [savedCommandDesc, setSavedCommandDesc] = useState('');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'settings'>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -743,7 +752,7 @@ const App: React.FC = () => {
         </IconButton>
       </Tooltip>
       <Tooltip title="Start guided tour">
-        <IconButton size="small" onClick={() => setShowTour(true)} color="inherit">
+        <IconButton size="small" onClick={startTour} color="inherit">
           <PlayArrowIcon />
         </IconButton>
       </Tooltip>
@@ -1268,108 +1277,188 @@ const App: React.FC = () => {
     }
   };
 
+  const handleTourComplete = () => {
+    setRunTour(false);
+    const updated = { ...tourCompleted, [currentView]: true };
+    setTourCompleted(updated);
+    localStorage.setItem('tour_completed', JSON.stringify(updated));
+  };
+
+  const startTour = () => {
+    setRunTour(true);
+  };
+
+  // Auto-start tour for first-time users on dashboard view
+  useEffect(() => {
+    if (currentView === 'dashboard' && !tourCompleted.dashboard && connected) {
+      const timer = setTimeout(() => {
+        setRunTour(true);
+      }, 1000); // Delay to ensure elements are rendered
+      return () => clearTimeout(timer);
+    }
+  }, [currentView, tourCompleted, connected]);
+
+  const renderDashboardView = () => (
+    <>
+      {/* Manual Command Input */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Tooltip title={useNlp ? "Type natural language like 'show files' or 'what's the git status'" : "Enter shell commands like 'ls -la' or 'git status'. Press Enter to execute."}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder={useNlp ? "Enter natural language command..." : "Enter shell command..."}
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyPress={handleCommandKeyPress}
+                  disabled={!connected}
+                  InputProps={{
+                    startAdornment: useNlp ? (
+                      <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
+                    ) : (
+                      <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />
+                    ),
+                  }}
+                />
+              </Tooltip>
+              <Tooltip title="Execute the command (or press Enter)">
+                <span>
+                  <Button
+                    variant="contained"
+                    onClick={sendCommand}
+                    disabled={!connected || !commandInput.trim()}
+                    endIcon={<SendIcon />}
+                  >
+                    Run
+                  </Button>
+                </span>
+              </Tooltip>
+            </Stack>
+            <Tooltip title="Enable to use natural language commands powered by Ollama AI. Translates plain English into shell commands or detects MCP tool requests.">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={useNlp}
+                    onChange={(e) => setUseNlp(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PsychologyIcon fontSize="small" />
+                    <Typography variant="body2">
+                      Natural Language Processing (AI-powered command translation)
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Tooltip>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {renderApprovalsCard()}
+
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6} lg={4}>
+          {renderProjectCard()}
+        </Grid>
+        <Grid item xs={12} md={6} lg={4}>
+          {renderServicesCard()}
+        </Grid>
+        <Grid item xs={12} md={6} lg={4}>
+          <PluginsPanel
+            plugins={state?.plugins || []}
+            onInstallPlugin={handleInstallPlugin}
+            onUninstallPlugin={handleUninstallPlugin}
+            onTogglePlugin={handleTogglePlugin}
+            onToggleTool={handleToggleTool}
+          />
+        </Grid>
+        <Grid item xs={12} md={12} lg={4}>
+          {renderCommandsPanel()}
+        </Grid>
+        <Grid item xs={12} md={8}>
+          {renderWorkspacePanel()}
+        </Grid>
+        <Grid item xs={12} md={4}>
+          {renderLogs()}
+        </Grid>
+      </Grid>
+    </>
+  );
+
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return renderDashboardView();
+      case 'plugins':
+        return (
+          <Card>
+            <CardHeader title="Plugins" />
+            <CardContent>
+              <PluginsPanel
+                plugins={state?.plugins || []}
+                onInstallPlugin={handleInstallPlugin}
+                onUninstallPlugin={handleUninstallPlugin}
+                onTogglePlugin={handleTogglePlugin}
+                onToggleTool={handleToggleTool}
+              />
+            </CardContent>
+          </Card>
+        );
+      case 'extensions':
+        return (
+          <Card>
+            <CardHeader title="Extensions" />
+            <CardContent>
+              <Typography>Extensions view coming soon...</Typography>
+            </CardContent>
+          </Card>
+        );
+      case 'workspace':
+        return renderWorkspacePanel();
+      case 'settings':
+        return (
+          <Card>
+            <CardHeader title="Settings" />
+            <CardContent>
+              <Typography>Settings view coming soon...</Typography>
+            </CardContent>
+          </Card>
+        );
+      default:
+        return renderDashboardView();
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ flexGrow: 1, minHeight: '100vh' }}>
-        <AppBar position="static">
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-              Dev Orchestrator
-            </Typography>
-            {renderConnectionStatus()}
-          </Toolbar>
-        </AppBar>
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        <Sidebar
+          open={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          currentView={currentView}
+          onNavigate={(view) => setCurrentView(view as 'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'settings')}
+        />
+        <Box component="main" sx={{ flexGrow: 1 }}>
+          <AppBar position="static">
+            <Toolbar>
+              <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+                Dev Orchestrator
+              </Typography>
+              {renderConnectionStatus()}
+            </Toolbar>
+          </AppBar>
 
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        {/* Manual Command Input */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Tooltip title={useNlp ? "Type natural language like 'show files' or 'what's the git status'" : "Enter shell commands like 'ls -la' or 'git status'. Press Enter to execute."}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder={useNlp ? "Enter natural language command..." : "Enter shell command..."}
-                    value={commandInput}
-                    onChange={(e) => setCommandInput(e.target.value)}
-                    onKeyPress={handleCommandKeyPress}
-                    disabled={!connected}
-                    InputProps={{
-                      startAdornment: useNlp ? (
-                        <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
-                      ) : (
-                        <CodeIcon sx={{ mr: 1, color: 'action.disabled' }} />
-                      ),
-                    }}
-                  />
-                </Tooltip>
-                <Tooltip title="Execute the command (or press Enter)">
-                  <span>
-                    <Button
-                      variant="contained"
-                      onClick={sendCommand}
-                      disabled={!connected || !commandInput.trim()}
-                      endIcon={<SendIcon />}
-                    >
-                      Run
-                    </Button>
-                  </span>
-                </Tooltip>
-              </Stack>
-              <Tooltip title="Enable to use natural language commands powered by Ollama AI. Translates plain English into shell commands or detects MCP tool requests.">
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={useNlp}
-                      onChange={(e) => setUseNlp(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PsychologyIcon fontSize="small" />
-                      <Typography variant="body2">
-                        Natural Language Processing (AI-powered command translation)
-                      </Typography>
-                    </Box>
-                  }
-                />
-              </Tooltip>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {renderApprovalsCard()}
-
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6} lg={4}>
-            {renderProjectCard()}
-          </Grid>
-          <Grid item xs={12} md={6} lg={4}>
-            {renderServicesCard()}
-          </Grid>
-          <Grid item xs={12} md={6} lg={4}>
-            <PluginsPanel
-              plugins={state?.plugins || []}
-              onInstallPlugin={handleInstallPlugin}
-              onUninstallPlugin={handleUninstallPlugin}
-              onTogglePlugin={handleTogglePlugin}
-              onToggleTool={handleToggleTool}
-            />
-          </Grid>
-          <Grid item xs={12} md={12} lg={4}>
-            {renderCommandsPanel()}
-          </Grid>
-          <Grid item xs={12} md={8}>
-            {renderWorkspacePanel()}
-          </Grid>
-          <Grid item xs={12} md={4}>
-            {renderLogs()}
-          </Grid>
-        </Grid>
-      </Container>
+          <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+            {renderCurrentView()}
+          </Container>
+        </Box>
+      </Box>
 
       {selectedApproval && (
         <Dialog
@@ -1748,7 +1837,7 @@ const App: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setShowHelp(false); setShowTour(true); }} startIcon={<PlayArrowIcon />}>
+          <Button onClick={() => { setShowHelp(false); startTour(); }} startIcon={<PlayArrowIcon />}>
             Start Tour
           </Button>
           <Button onClick={() => setShowHelp(false)} variant="contained">
@@ -1757,78 +1846,12 @@ const App: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Guided Tour Overlay */}
-      {showTour && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            bgcolor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={() => setShowTour(false)}
-        >
-          <Paper
-            sx={{ p: 4, maxWidth: 500, m: 2 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PlayArrowIcon color="primary" />
-              Dashboard Tour
-            </Typography>
-            <Typography variant="body1" paragraph>
-              Welcome to the Dev Orchestrator Dashboard!
-            </Typography>
-            <List>
-              <ListItem>
-                <ListItemText
-                  primary="1. Try the Command Input"
-                  secondary="Type 'ls -la' or enable NLP and try 'show files'"
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="2. Toggle NLP Mode"
-                  secondary="Enable the switch to use natural language"
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="3. Check the Logs"
-                  secondary="Filter logs to see command execution details"
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="4. View Command History"
-                  secondary="Click any command to see full details"
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="5. Try Dark Mode"
-                  secondary="Toggle the theme with the sun/moon icon"
-                />
-              </ListItem>
-            </List>
-            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
-              <Button onClick={() => setShowTour(false)} variant="outlined">
-                Skip Tour
-              </Button>
-              <Button onClick={() => setShowTour(false)} variant="contained">
-                Let's Go!
-              </Button>
-            </Stack>
-          </Paper>
-        </Box>
-      )}
-      </Box>
+      {/* Guided Tour with Joyride */}
+      <GuidedTour
+        run={runTour}
+        onComplete={handleTourComplete}
+        steps={dashboardTourSteps}
+      />
     </ThemeProvider>
   );
 };

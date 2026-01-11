@@ -56,7 +56,29 @@
       "Bash(/usr/bin/find /var/folders/7h/f0qvjwgd35d6r2bxt4sfv_wc0000gn/T/claude/-Users-joshuadisraeli-repos-dev-orchestrator-mcp/tasks/ -name \"*.output\" -type f)",
       "Bash(/usr/bin/grep:*)",
       "Bash(sqlite3:*)",
-      "Bash(python3.12:*)"
+      "Bash(python3.12:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(xargs kill:*)",
+      "Bash(pkill:*)",
+      "Bash(timeout 10 python:*)",
+      "Bash(nc:*)",
+      "Bash(ps:*)",
+      "mcp__github__create_repository",
+      "mcp__github__get_file_contents",
+      "mcp__github__create_or_update_file",
+      "mcp__github__search_repositories",
+      "mcp__github__push_files",
+      "Bash(gh auth status:*)",
+      "Bash(gh repo create:*)",
+      "Bash(gh repo set-default:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(gh repo view:*)",
+      "Bash(git clone:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

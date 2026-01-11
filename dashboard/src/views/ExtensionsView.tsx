@@ -115,6 +115,7 @@ const ExtensionsView: React.FC<ExtensionsViewProps> = ({ sendMessage }) => {
         args = {
           name: workflowName.trim(),
           description: workflowDescription.trim() || 'A custom workflow',
+          author: 'User',
         };
       } else {
         if (!integrationName.trim()) {
@@ -125,7 +126,10 @@ const ExtensionsView: React.FC<ExtensionsViewProps> = ({ sendMessage }) => {
         toolName = 'create_integration';
         args = {
           name: integrationName.trim(),
-          description: integrationDescription.trim() || 'A custom integration',
+          service_type: 'custom',
+          config: {
+            description: integrationDescription.trim() || 'A custom integration',
+          },
         };
       }
 

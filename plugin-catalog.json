@@ -1,0 +1,408 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-01-10",
+  "categories": [
+    "version-control",
+    "integration",
+    "communication",
+    "infrastructure",
+    "database",
+    "web",
+    "filesystem",
+    "development"
+  ],
+  "plugins": [
+    {
+      "id": "anthropic-github",
+      "name": "GitHub Integration (Official)",
+      "description": "Official Anthropic GitHub MCP server. Create issues, PRs, manage repositories, search code, and interact with GitHub's full API.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "version-control",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/github",
+      "version": "0.5.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "create_or_update_file",
+        "push_files",
+        "create_issue",
+        "create_pull_request",
+        "fork_repository",
+        "create_branch",
+        "search_repositories",
+        "search_code",
+        "search_issues",
+        "get_file_contents",
+        "list_commits"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": []
+      },
+      "required_env": [
+        "GITHUB_PERSONAL_ACCESS_TOKEN"
+      ],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+      "downloads": 15234,
+      "rating": 4.9,
+      "security_notes": "Requires GitHub personal access token. Scope: repo, user. Official Anthropic server with full security audit."
+    },
+    {
+      "id": "anthropic-slack",
+      "name": "Slack Integration (Official)",
+      "description": "Official Anthropic Slack MCP server. Send messages, list channels, get users, and integrate with your Slack workspace.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "communication",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/slack",
+      "version": "0.4.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "slack_list_channels",
+        "slack_post_message",
+        "slack_reply_to_thread",
+        "slack_add_reaction",
+        "slack_get_channel_history",
+        "slack_get_users"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": []
+      },
+      "required_env": [
+        "SLACK_BOT_TOKEN",
+        "SLACK_TEAM_ID"
+      ],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
+      "downloads": 8432,
+      "rating": 4.7,
+      "security_notes": "Requires Slack Bot token. Official Anthropic server with security review."
+    },
+    {
+      "id": "anthropic-postgres",
+      "name": "PostgreSQL Database (Official)",
+      "description": "Official Anthropic PostgreSQL MCP server. Execute SQL queries, manage schemas, and interact with PostgreSQL databases safely.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "database",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/postgres",
+      "version": "0.3.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "postgres_query",
+        "postgres_list_tables",
+        "postgres_describe_table",
+        "postgres_get_table_schema"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": ["psycopg2-binary"]
+      },
+      "required_env": [
+        "POSTGRES_CONNECTION_STRING"
+      ],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+      "downloads": 6721,
+      "rating": 4.6,
+      "security_notes": "⚠️ Database write access. Use read-only credentials when possible. Official Anthropic server."
+    },
+    {
+      "id": "anthropic-puppeteer",
+      "name": "Puppeteer Browser Automation (Official)",
+      "description": "Official Anthropic Puppeteer MCP server. Automate browser interactions, take screenshots, run tests, and scrape web content.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "web",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/puppeteer",
+      "version": "0.4.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "puppeteer_navigate",
+        "puppeteer_screenshot",
+        "puppeteer_click",
+        "puppeteer_fill",
+        "puppeteer_select",
+        "puppeteer_hover",
+        "puppeteer_evaluate"
+      ],
+      "dependencies": {
+        "node": ">=18.0.0",
+        "npm": ["puppeteer"]
+      },
+      "required_env": [],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
+      "downloads": 9234,
+      "rating": 4.8,
+      "security_notes": "⚠️ Can access any website. Review usage carefully. Official Anthropic server."
+    },
+    {
+      "id": "anthropic-filesystem",
+      "name": "Filesystem Operations (Official)",
+      "description": "Official Anthropic filesystem MCP server. Read, write, search files, and manage directories with safety constraints.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "filesystem",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/filesystem",
+      "version": "0.4.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "read_file",
+        "read_multiple_files",
+        "write_file",
+        "edit_file",
+        "create_directory",
+        "list_directory",
+        "move_file",
+        "search_files",
+        "get_file_info",
+        "list_allowed_directories"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": []
+      },
+      "required_env": [],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+      "downloads": 12543,
+      "rating": 4.9,
+      "security_notes": "⚠️ Full filesystem access within allowed directories. Configure restrictions carefully. Official Anthropic server."
+    },
+    {
+      "id": "anthropic-brave-search",
+      "name": "Brave Search (Official)",
+      "description": "Official Anthropic Brave Search MCP server. Perform web searches using Brave's privacy-focused search API.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "web",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/brave-search",
+      "version": "0.3.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "brave_web_search",
+        "brave_local_search"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": []
+      },
+      "required_env": [
+        "BRAVE_API_KEY"
+      ],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+      "downloads": 5432,
+      "rating": 4.5,
+      "security_notes": "Requires Brave API key. Official Anthropic server with security review."
+    },
+    {
+      "id": "anthropic-fetch",
+      "name": "HTTP Fetch (Official)",
+      "description": "Official Anthropic fetch MCP server. Make HTTP requests, fetch URLs, and interact with REST APIs.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "web",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/fetch",
+      "version": "0.3.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "fetch",
+        "fetch_with_timeout"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": []
+      },
+      "required_env": [],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch",
+      "downloads": 7654,
+      "rating": 4.6,
+      "security_notes": "⚠️ Can make requests to any URL. Monitor network activity. Official Anthropic server."
+    },
+    {
+      "id": "anthropic-git",
+      "name": "Git Operations (Official)",
+      "description": "Official Anthropic Git MCP server. Perform git operations including status, diff, log, commit, and branch management.",
+      "author": "Anthropic",
+      "author_url": "https://anthropic.com",
+      "category": "version-control",
+      "git_url": "https://github.com/modelcontextprotocol/servers.git",
+      "subdirectory": "src/git",
+      "version": "0.3.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "anthropic-official",
+      "tools": [
+        "git_status",
+        "git_diff_unstaged",
+        "git_diff_staged",
+        "git_diff",
+        "git_commit",
+        "git_add",
+        "git_reset",
+        "git_log",
+        "git_create_branch",
+        "git_checkout",
+        "git_show"
+      ],
+      "dependencies": {
+        "python": ">=3.10",
+        "pip": []
+      },
+      "required_env": [],
+      "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/git",
+      "downloads": 11234,
+      "rating": 4.8,
+      "security_notes": "⚠️ Can modify git repositories. Use carefully. Official Anthropic server."
+    },
+    {
+      "id": "devorch-jira",
+      "name": "Jira Integration",
+      "description": "Create and manage Jira issues, search projects, update tickets, and integrate with Atlassian Jira. Built by Dev Orchestrator team.",
+      "author": "Dev Orchestrator Team",
+      "author_url": "https://github.com/chaos-consultant",
+      "category": "integration",
+      "git_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins.git",
+      "subdirectory": "official/jira-integration",
+      "version": "1.0.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "devorch-official",
+      "tools": [
+        "jira_create_issue",
+        "jira_update_issue",
+        "jira_search_issues",
+        "jira_add_comment",
+        "jira_get_issue",
+        "jira_list_projects",
+        "jira_assign_issue",
+        "jira_transition_issue"
+      ],
+      "dependencies": {
+        "python": ">=3.11",
+        "pip": ["jira>=3.5.0"]
+      },
+      "required_env": [
+        "JIRA_URL",
+        "JIRA_EMAIL",
+        "JIRA_API_TOKEN"
+      ],
+      "documentation_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins/tree/main/official/jira-integration",
+      "downloads": 0,
+      "rating": 0,
+      "security_notes": "Requires Jira API token. Maintained by Dev Orchestrator team."
+    },
+    {
+      "id": "devorch-docker",
+      "name": "Docker Manager",
+      "description": "Manage Docker containers, images, networks, and volumes. Start/stop services, view logs, and monitor containers.",
+      "author": "Dev Orchestrator Team",
+      "author_url": "https://github.com/chaos-consultant",
+      "category": "infrastructure",
+      "git_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins.git",
+      "subdirectory": "official/docker-manager",
+      "version": "1.0.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "devorch-official",
+      "tools": [
+        "docker_list_containers",
+        "docker_start_container",
+        "docker_stop_container",
+        "docker_restart_container",
+        "docker_logs",
+        "docker_inspect_container",
+        "docker_list_images",
+        "docker_pull_image",
+        "docker_exec_command"
+      ],
+      "dependencies": {
+        "python": ">=3.11",
+        "pip": ["docker>=7.0.0"]
+      },
+      "required_env": [],
+      "documentation_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins/tree/main/official/docker-manager",
+      "downloads": 0,
+      "rating": 0,
+      "security_notes": "⚠️ Can control Docker daemon. Requires Docker socket access."
+    },
+    {
+      "id": "devorch-db-query",
+      "name": "Database Query Runner",
+      "description": "Execute SQL queries safely across MySQL, PostgreSQL, SQLite with query validation, explain plans, and result formatting.",
+      "author": "Dev Orchestrator Team",
+      "author_url": "https://github.com/chaos-consultant",
+      "category": "database",
+      "git_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins.git",
+      "subdirectory": "official/database-query",
+      "version": "1.0.0",
+      "mcp_version": "1.0",
+      "verified": true,
+      "verification_level": "devorch-official",
+      "tools": [
+        "db_query",
+        "db_list_tables",
+        "db_describe_table",
+        "db_explain_query",
+        "db_list_databases",
+        "db_table_row_count"
+      ],
+      "dependencies": {
+        "python": ">=3.11",
+        "pip": ["sqlalchemy>=2.0.0", "psycopg2-binary>=2.9.0", "mysqlclient>=2.2.0"]
+      },
+      "required_env": [
+        "DATABASE_URL"
+      ],
+      "documentation_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins/tree/main/official/database-query",
+      "downloads": 0,
+      "rating": 0,
+      "security_notes": "⚠️ Database access. Use read-only credentials. Query validation included."
+    }
+  ],
+  "verification_levels": {
+    "anthropic-official": {
+      "label": "Anthropic Official",
+      "badge_color": "#7C3AED",
+      "trust_level": "highest",
+      "description": "Maintained and security-audited by Anthropic"
+    },
+    "devorch-official": {
+      "label": "Dev Orchestrator Official",
+      "badge_color": "#2563EB",
+      "trust_level": "high",
+      "description": "Built and maintained by Dev Orchestrator team"
+    },
+    "verified-community": {
+      "label": "Verified Community",
+      "badge_color": "#059669",
+      "trust_level": "medium",
+      "description": "Security reviewed by Dev Orchestrator team"
+    },
+    "community": {
+      "label": "Community",
+      "badge_color": "#6B7280",
+      "trust_level": "low",
+      "description": "Not verified - review code before installing"
+    }
+  }
+}

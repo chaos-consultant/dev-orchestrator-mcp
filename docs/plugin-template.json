@@ -1,0 +1,31 @@
+{
+  "id": "your-plugin-id",
+  "name": "Your Plugin Name",
+  "description": "Brief description of what your plugin does (1-2 sentences)",
+  "author": "Your Name or Organization",
+  "author_url": "https://github.com/your-username",
+  "category": "integration",
+  "git_url": "https://github.com/your-username/your-plugin.git",
+  "subdirectory": "",
+  "version": "1.0.0",
+  "mcp_version": "1.0",
+  "verified": false,
+  "verification_level": "community",
+  "tools": [
+    "tool_name_1",
+    "tool_name_2",
+    "tool_name_3"
+  ],
+  "dependencies": {
+    "python": ">=3.11",
+    "pip": ["required-package>=1.0.0"]
+  },
+  "required_env": [
+    "API_KEY",
+    "API_SECRET"
+  ],
+  "documentation_url": "https://github.com/your-username/your-plugin/blob/main/README.md",
+  "downloads": 0,
+  "rating": 0,
+  "security_notes": "Describe what permissions this plugin needs (e.g., 'Requires API access to service.com. Read-only access.')"
+}

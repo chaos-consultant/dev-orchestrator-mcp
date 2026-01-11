@@ -23,6 +23,8 @@ from .notifications import get_notifier
 from .state import get_state_manager, ServiceInfo
 from .workspace_manager import WorkspaceManager
 from .plugins import get_plugin_manager
+from .templates.plugin_creator import PluginCreator
+from .templates.extension_creator import ExtensionCreator
 
 
 # Initialize components
@@ -32,6 +34,8 @@ notifier = get_notifier()
 executor: Optional[ShellExecutor] = None
 current_detector: Optional[ProjectDetector] = None
 workspace_manager: Optional[WorkspaceManager] = None
+plugin_creator = PluginCreator()
+extension_creator = ExtensionCreator()
 
 # Pending approval futures
 approval_futures: dict[str, asyncio.Future] = {}
@@ -369,6 +373,149 @@ async def list_tools():
                     }
                 },
                 "required": ["plugin_id", "tool_name", "enabled"]
+            }
+        ),
+        Tool(
+            name="create_plugin",
+            description="Create a new MCP plugin from template (basic or advanced)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Plugin name (kebab-case, e.g., my-custom-plugin)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Plugin description"
+                    },
+                    "author": {
+                        "type": "string",
+                        "description": "Author name"
+                    },
+                    "template_type": {
+                        "type": "string",
+                        "enum": ["basic", "advanced"],
+                        "description": "Template type: 'basic' for simple tools, 'advanced' for state management"
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "enum": ["python", "node"],
+                        "description": "Runtime environment (default: python)"
+                    },
+                    "tools": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"}
+                            }
+                        },
+                        "description": "Tool definitions for the plugin"
+                    }
+                },
+                "required": ["name", "description", "author", "template_type"]
+            }
+        ),
+        Tool(
+            name="create_widget",
+            description="Create a new dashboard widget from template",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Widget name (kebab-case, e.g., my-widget)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Widget description"
+                    },
+                    "author": {
+                        "type": "string",
+                        "description": "Author name"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Widget category (monitoring, tools, analytics, etc.)"
+                    },
+                    "template_type": {
+                        "type": "string",
+                        "enum": ["basic", "interactive", "realtime"],
+                        "description": "Template type"
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Permissions (read-state, execute-commands, read-logs)"
+                    },
+                    "grid_size": {
+                        "type": "object",
+                        "properties": {
+                            "xs": {"type": "integer"},
+                            "md": {"type": "integer"},
+                            "lg": {"type": "integer"}
+                        },
+                        "description": "Grid size configuration"
+                    }
+                },
+                "required": ["name", "description", "author", "category", "template_type"]
+            }
+        ),
+        Tool(
+            name="create_workflow",
+            description="Create a new workflow from template",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Workflow name"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Workflow description"
+                    },
+                    "author": {
+                        "type": "string",
+                        "description": "Author name"
+                    },
+                    "parameters": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Workflow parameters"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Workflow steps"
+                    }
+                },
+                "required": ["name", "description", "author"]
+            }
+        ),
+        Tool(
+            name="create_integration",
+            description="Create a new integration from template (Slack, GitHub, Jira, or custom)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Integration name (kebab-case)"
+                    },
+                    "service_type": {
+                        "type": "string",
+                        "enum": ["slack", "github", "jira", "custom"],
+                        "description": "Service type"
+                    },
+                    "config": {
+                        "type": "object",
+                        "description": "Integration configuration"
+                    }
+                },
+                "required": ["name", "service_type"]
             }
         ),
     ]
@@ -721,6 +868,96 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=json.dumps({
                     "success": False,
                     "error": "Tool not found"
+                }, indent=2))]
+
+        elif name == "create_plugin":
+            try:
+                created_files = plugin_creator.create_plugin(
+                    name=arguments["name"],
+                    description=arguments["description"],
+                    author=arguments["author"],
+                    template_type=arguments["template_type"],
+                    runtime=arguments.get("runtime", "python"),
+                    tools=arguments.get("tools", [])
+                )
+
+                await state_manager.log("INFO", f"Created plugin: {arguments['name']}")
+                return [TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "message": f"Plugin created successfully",
+                    "files": created_files
+                }, indent=2))]
+            except Exception as e:
+                return [TextContent(type="text", text=json.dumps({
+                    "success": False,
+                    "error": str(e)
+                }, indent=2))]
+
+        elif name == "create_widget":
+            try:
+                created_files = extension_creator.create_widget(
+                    name=arguments["name"],
+                    description=arguments["description"],
+                    author=arguments["author"],
+                    category=arguments["category"],
+                    template_type=arguments["template_type"],
+                    permissions=arguments.get("permissions"),
+                    grid_size=arguments.get("grid_size")
+                )
+
+                await state_manager.log("INFO", f"Created widget: {arguments['name']}")
+                return [TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "message": f"Widget created successfully",
+                    "files": created_files
+                }, indent=2))]
+            except Exception as e:
+                return [TextContent(type="text", text=json.dumps({
+                    "success": False,
+                    "error": str(e)
+                }, indent=2))]
+
+        elif name == "create_workflow":
+            try:
+                workflow_path = extension_creator.create_workflow(
+                    name=arguments["name"],
+                    description=arguments["description"],
+                    author=arguments["author"],
+                    version=arguments.get("version", "1.0.0"),
+                    parameters=arguments.get("parameters"),
+                    steps=arguments.get("steps")
+                )
+
+                await state_manager.log("INFO", f"Created workflow: {arguments['name']}")
+                return [TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "message": f"Workflow created successfully",
+                    "path": workflow_path
+                }, indent=2))]
+            except Exception as e:
+                return [TextContent(type="text", text=json.dumps({
+                    "success": False,
+                    "error": str(e)
+                }, indent=2))]
+
+        elif name == "create_integration":
+            try:
+                created_files = extension_creator.create_integration(
+                    name=arguments["name"],
+                    service_type=arguments["service_type"],
+                    config=arguments.get("config")
+                )
+
+                await state_manager.log("INFO", f"Created integration: {arguments['name']}")
+                return [TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "message": f"Integration created successfully",
+                    "files": created_files
+                }, indent=2))]
+            except Exception as e:
+                return [TextContent(type="text", text=json.dumps({
+                    "success": False,
+                    "error": str(e)
                 }, indent=2))]
 
         else:

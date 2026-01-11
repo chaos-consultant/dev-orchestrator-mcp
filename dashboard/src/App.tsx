@@ -64,6 +64,7 @@ import {
   BookmarkAdd as BookmarkAddIcon,
   Bookmark as BookmarkIcon,
   Delete as DeleteIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 
 import PluginsPanel from './components/PluginsPanel';
@@ -235,10 +236,11 @@ const App: React.FC = () => {
   const [commandToSave, setCommandToSave] = useState<CommandHistory | null>(null);
   const [savedCommandName, setSavedCommandName] = useState('');
   const [savedCommandDesc, setSavedCommandDesc] = useState('');
-  const [currentView, setCurrentView] = useState<'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'logs' | 'settings'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [nlpSettingsOpen, setNlpSettingsOpen] = useState(false);
   const [nlpConfig, setNlpConfig] = useState<any>(null);
+  const [repoFilter, setRepoFilter] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
@@ -773,18 +775,11 @@ const App: React.FC = () => {
     if (!project) {
       return (
         <Card>
-          <CardHeader title="Current Project" />
-          <CardContent>
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <CubesIcon sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary">
-                No Project Detected
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Run <code>detect_project</code> to scan a directory.
-              </Typography>
-            </Box>
-          </CardContent>
+          <CardHeader
+            avatar={<CubesIcon />}
+            title="No Project"
+            subheader="Run detect_project to scan"
+          />
         </Card>
       );
     }
@@ -794,41 +789,37 @@ const App: React.FC = () => {
         <CardHeader
           avatar={<CubesIcon />}
           title={project.name}
-        />
-        <CardContent>
-          <Stack spacing={2}>
+          subheader={
             <Box>
-              <Typography variant="subtitle2" color="text.secondary">Path</Typography>
-              <CodeBox>{project.path}</CodeBox>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Type</Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+              <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                {project.path}
+              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{ mt: 1 }} flexWrap="wrap">
                 {project.project_type.map((t) => (
-                  <Chip key={t} label={t} color="primary" size="small" />
+                  <Chip key={t} label={t} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
                 ))}
+                {project.git_branch && (
+                  <Chip
+                    label={`${project.git_branch}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: '0.7rem' }}
+                  />
+                )}
+                {project.venv_path && (
+                  <Chip
+                    label="venv"
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: '0.7rem' }}
+                  />
+                )}
               </Stack>
             </Box>
-            {project.git_branch && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Git Branch</Typography>
-                <Typography variant="body2">{project.git_branch}</Typography>
-              </Box>
-            )}
-            {project.git_user_email && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Git User</Typography>
-                <Typography variant="body2">{project.git_user_email}</Typography>
-              </Box>
-            )}
-            {project.venv_path && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Virtual Environment</Typography>
-                <Chip label="Active" color="success" size="small" />
-              </Box>
-            )}
-          </Stack>
-        </CardContent>
+          }
+        />
       </Card>
     );
   };
@@ -1003,7 +994,7 @@ const App: React.FC = () => {
             ) : (
               <List dense>
                 {recent.map((cmd, idx) => (
-                  <React.Fragment key={idx}>
+                  <React.Fragment key={`${cmd.command}-${cmd.timestamp}-${idx}`}>
                     <ListItem sx={{ pr: 1 }}>
                       <ListItemIcon sx={{ minWidth: 32 }}>
                         {cmd.status === 'completed' ? (
@@ -1140,131 +1131,120 @@ const App: React.FC = () => {
           <CardHeader
             avatar={<AccountTreeIcon />}
             title="Workspace"
+            subheader="No workspace detected"
           />
-          <CardContent>
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <AccountTreeIcon sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary">
-                No Workspace Detected
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Workspace discovery happens automatically
-              </Typography>
-            </Box>
-          </CardContent>
         </Card>
       );
     }
+
+    const getRepoStatusColor = (repo: any) => {
+      if (repo.has_uncommitted_changes) return 'warning.main';
+      if (repo.ahead_behind && repo.ahead_behind.includes('behind')) return 'error.main';
+      if (repo.ahead_behind && repo.ahead_behind.includes('ahead')) return 'info.main';
+      return 'success.main';
+    };
+
+    const filteredRepos = workspace.repos.filter((repo: any) =>
+      repo.name.toLowerCase().includes(repoFilter.toLowerCase())
+    );
 
     return (
       <Card>
         <CardHeader
           avatar={<AccountTreeIcon />}
-          title={`Workspace (${workspace.total_repos} repos)`}
-          subheader={workspace.workspace_root}
+          title={`${workspace.total_repos} Repositories`}
+          subheader={
+            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+              {workspace.repos_with_changes > 0 && (
+                <Chip label={`${workspace.repos_with_changes} modified`} size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />
+              )}
+              {workspace.repos_ahead_of_upstream > 0 && (
+                <Chip label={`${workspace.repos_ahead_of_upstream} ahead`} size="small" color="info" sx={{ height: 18, fontSize: '0.65rem' }} />
+              )}
+              {workspace.repos_need_pull > 0 && (
+                <Chip label={`${workspace.repos_need_pull} behind`} size="small" color="error" sx={{ height: 18, fontSize: '0.65rem' }} />
+              )}
+            </Stack>
+          }
         />
         <CardContent>
-          {/* Summary Stats */}
-          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-            {workspace.repos_with_changes > 0 && (
-              <Chip
-                icon={<WarningIcon />}
-                label={`${workspace.repos_with_changes} with changes`}
-                color="warning"
-                size="small"
-              />
-            )}
-            {workspace.repos_ahead_of_upstream > 0 && (
-              <Chip
-                icon={<CloudUploadIcon />}
-                label={`${workspace.repos_ahead_of_upstream} ahead`}
-                color="info"
-                size="small"
-              />
-            )}
-            {workspace.repos_need_pull > 0 && (
-              <Chip
-                icon={<CloudDownloadIcon />}
-                label={`${workspace.repos_need_pull} behind`}
-                color="error"
-                size="small"
-              />
-            )}
-          </Stack>
+          {/* Search Filter */}
+          {workspace.repos.length > 6 && (
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Filter repositories..."
+              value={repoFilter}
+              onChange={(e) => setRepoFilter(e.target.value)}
+              sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} fontSize="small" />,
+              }}
+            />
+          )}
 
-          {/* Repo List */}
-          <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
-            <List dense>
-              {workspace.repos.slice(0, 10).map((repo, idx) => (
-                <React.Fragment key={repo.name}>
-                  <ListItem
-                    button
-                    onClick={() => switchProject(repo.name)}
-                    sx={{
-                      cursor: 'pointer',
-                      borderRadius: 1,
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: 'action.hover',
-                        transform: 'translateX(4px)',
-                      },
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      {repo.has_uncommitted_changes ? (
-                        <FolderOpenIcon color="warning" fontSize="small" />
-                      ) : (
-                        <FolderIcon color="action" fontSize="small" />
+          {/* Compact Grid of Repo Cards */}
+          <Grid container spacing={1.5}>
+            {filteredRepos.slice(0, 12).map((repo: any) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={repo.name}>
+                <Paper
+                  onClick={() => switchProject(repo.name)}
+                  sx={{
+                    p: 1.5,
+                    cursor: 'pointer',
+                    borderLeft: 4,
+                    borderColor: getRepoStatusColor(repo),
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                      transform: 'translateY(-2px)',
+                      boxShadow: 2,
+                    },
+                  }}
+                >
+                  <Stack spacing={0.5}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" fontWeight="bold" noWrap sx={{ flex: 1, pr: 1 }}>
+                        {repo.name}
+                      </Typography>
+                      {repo.has_uncommitted_changes && (
+                        <FolderOpenIcon fontSize="small" color="warning" />
                       )}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2" fontWeight={repo.has_uncommitted_changes ? 'bold' : 'normal'}>
-                            {repo.name}
-                          </Typography>
-                          {repo.branch && (
-                            <Chip
-                              label={repo.branch}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
-                          )}
-                          <Typography variant="caption" color="primary" sx={{ ml: 'auto', fontWeight: 500, opacity: 0.7 }}>
-                            Click to switch →
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                          {repo.has_uncommitted_changes && (
-                            <Chip label="uncommitted" size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />
-                          )}
-                          {repo.ahead_behind && repo.ahead_behind !== 'no upstream' && repo.ahead_behind !== 'up to date' && (
-                            <Chip label={repo.ahead_behind} size="small" color="info" sx={{ height: 18, fontSize: '0.65rem' }} />
-                          )}
-                          {repo.last_commit_time && (
-                            <Typography variant="caption" color="text.secondary">
-                              {repo.last_commit_time}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  {idx < Math.min(workspace.repos.length, 10) - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-            {workspace.repos.length > 10 && (
-              <Box sx={{ textAlign: 'center', py: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  ... and {workspace.repos.length - 10} more repositories
-                </Typography>
-              </Box>
-            )}
-          </Box>
+                    </Box>
+                    {repo.branch && (
+                      <Chip
+                        label={repo.branch}
+                        size="small"
+                        variant="outlined"
+                        sx={{ height: 18, fontSize: '0.65rem', width: 'fit-content' }}
+                      />
+                    )}
+                    {(repo.ahead_behind && repo.ahead_behind !== 'no upstream' && repo.ahead_behind !== 'up to date') && (
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {repo.ahead_behind}
+                      </Typography>
+                    )}
+                  </Stack>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+
+          {filteredRepos.length > 12 && (
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                +{filteredRepos.length - 12} more repositories
+              </Typography>
+            </Box>
+          )}
+
+          {filteredRepos.length === 0 && repoFilter && (
+            <Box sx={{ textAlign: 'center', py: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                No repositories match "{repoFilter}"
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
     );
@@ -1369,25 +1349,10 @@ const App: React.FC = () => {
           {renderProjectCard()}
         </Grid>
         <Grid item xs={12} md={6} lg={4}>
-          {renderServicesCard()}
-        </Grid>
-        <Grid item xs={12} md={6} lg={4}>
-          <PluginsPanel
-            plugins={state?.plugins || []}
-            onInstallPlugin={handleInstallPlugin}
-            onUninstallPlugin={handleUninstallPlugin}
-            onTogglePlugin={handleTogglePlugin}
-            onToggleTool={handleToggleTool}
-          />
-        </Grid>
-        <Grid item xs={12} md={12} lg={4}>
           {renderCommandsPanel()}
         </Grid>
-        <Grid item xs={12} md={8}>
-          {renderWorkspacePanel()}
-        </Grid>
-        <Grid item xs={12} md={4}>
-          {renderLogs()}
+        <Grid item xs={12} md={6} lg={4}>
+          {Object.values(state?.services || {}).length > 0 && renderServicesCard()}
         </Grid>
       </Grid>
     </>
@@ -1423,6 +1388,12 @@ const App: React.FC = () => {
         );
       case 'workspace':
         return renderWorkspacePanel();
+      case 'logs':
+        return (
+          <Container maxWidth="xl">
+            {renderLogs()}
+          </Container>
+        );
       case 'settings':
         return (
           <Container maxWidth="lg">
@@ -1458,9 +1429,36 @@ const App: React.FC = () => {
                       Configure NLP Providers
                     </Button>
                     {nlpConfig && (
-                      <Alert severity="info">
-                        Primary Provider: {nlpConfig.primaryProvider || 'Not configured'}
-                      </Alert>
+                      <Box>
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                          <Typography variant="body2" fontWeight="bold">Primary Provider: {nlpConfig.primaryProvider || 'Not configured'}</Typography>
+                        </Alert>
+                        <Stack spacing={1}>
+                          {nlpConfig.providers?.ollama?.enabled && (
+                            <Typography variant="body2">
+                              • Ollama: {nlpConfig.providers.ollama.model || 'codellama:7b-instruct'}
+                            </Typography>
+                          )}
+                          {nlpConfig.providers?.openai?.enabled && (
+                            <Typography variant="body2">
+                              • OpenAI: {nlpConfig.providers.openai.model || 'gpt-3.5-turbo'}
+                            </Typography>
+                          )}
+                          {nlpConfig.providers?.gemini?.enabled && (
+                            <Typography variant="body2">
+                              • Gemini: {nlpConfig.providers.gemini.model || 'gemini-pro'}
+                            </Typography>
+                          )}
+                          {nlpConfig.providers?.anthropic?.enabled && (
+                            <Typography variant="body2">
+                              • Anthropic: {nlpConfig.providers.anthropic.model || 'claude-3-5-sonnet-20241022'}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            Fallback to local: {nlpConfig.fallbackToLocal ? 'Enabled' : 'Disabled'}
+                          </Typography>
+                        </Stack>
+                      </Box>
                     )}
                   </Stack>
                 </CardContent>
@@ -1475,10 +1473,8 @@ const App: React.FC = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={theme.palette.mode === 'dark'}
-                        onChange={() => {
-                          /* Theme toggle will be implemented */
-                        }}
+                        checked={darkMode}
+                        onChange={(e) => setDarkMode(e.target.checked)}
                       />
                     }
                     label="Dark Mode"
@@ -1516,7 +1512,7 @@ const App: React.FC = () => {
           open={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
           currentView={currentView}
-          onNavigate={(view) => setCurrentView(view as 'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'settings')}
+          onNavigate={(view) => setCurrentView(view as 'dashboard' | 'plugins' | 'extensions' | 'workspace' | 'logs' | 'settings')}
         />
         <Box component="main" sx={{ flexGrow: 1 }}>
           <AppBar position="static">

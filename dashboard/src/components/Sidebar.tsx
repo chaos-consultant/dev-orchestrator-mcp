@@ -19,6 +19,7 @@ import {
   Help as HelpIcon,
   ChevronLeft as ChevronLeftIcon,
   Menu as MenuIcon,
+  Article as LogsIcon,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -34,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle, currentView, onNaviga
     { id: 'plugins', label: 'Plugins', icon: <ExtensionIcon /> },
     { id: 'extensions', label: 'Extensions', icon: <WidgetsIcon /> },
     { id: 'workspace', label: 'Workspace', icon: <WorkspaceIcon /> },
+    { id: 'logs', label: 'Logs', icon: <LogsIcon /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
   ];
 

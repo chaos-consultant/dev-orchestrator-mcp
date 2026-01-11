@@ -38,8 +38,16 @@ class WebSocketServer:
 
     async def handler(self, websocket):
         """Handle WebSocket connections."""
+        # Check client count and log warning if too many
+        client_count = len(self.state_manager.clients)
+        if client_count >= 5:
+            await self.state_manager.log(
+                "WARN",
+                f"High number of WebSocket clients connected: {client_count}. Consider closing unused browser tabs."
+            )
+
         await self.state_manager.add_client(websocket)
-        await self.state_manager.log("INFO", f"Dashboard client connected from {websocket.remote_address}")
+        await self.state_manager.log("INFO", f"Dashboard client connected from {websocket.remote_address} (total: {len(self.state_manager.clients)})")
 
         try:
             async for message in websocket:
@@ -52,7 +60,7 @@ class WebSocketServer:
             pass
         finally:
             self.state_manager.remove_client(websocket)
-            await self.state_manager.log("INFO", "Dashboard client disconnected")
+            await self.state_manager.log("INFO", f"Dashboard client disconnected (remaining: {len(self.state_manager.clients)})")
 
     async def handle_message(self, websocket, data: dict):
         """Handle incoming WebSocket messages."""
@@ -391,6 +399,29 @@ class WebSocketServer:
         elif msg_type == "ping":
             await websocket.send(json.dumps({"type": "pong"}))
     
+    async def cleanup_dead_connections(self):
+        """Periodically ping clients and remove dead connections."""
+        while True:
+            await asyncio.sleep(30)  # Check every 30 seconds
+
+            dead_clients = []
+            for client in list(self.state_manager.clients):
+                try:
+                    # Send ping to check if connection is alive
+                    pong = await asyncio.wait_for(
+                        client.ping(),
+                        timeout=5.0
+                    )
+                    await pong  # Wait for pong response
+                except Exception:
+                    # Connection is dead, mark for removal
+                    dead_clients.append(client)
+
+            # Remove dead clients
+            for client in dead_clients:
+                self.state_manager.remove_client(client)
+                await self.state_manager.log("INFO", f"Removed dead WebSocket connection (remaining: {len(self.state_manager.clients)})")
+
     async def start(self):
         """Start the WebSocket server."""
         self._server = await serve(
@@ -399,6 +430,9 @@ class WebSocketServer:
             self.port
         )
         await self.state_manager.log("INFO", f"WebSocket server started on ws://{self.host}:{self.port}")
+
+        # Start background task to cleanup dead connections
+        asyncio.create_task(self.cleanup_dead_connections())
     
     async def stop(self):
         """Stop the WebSocket server."""

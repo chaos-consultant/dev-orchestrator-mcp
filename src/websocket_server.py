@@ -14,6 +14,7 @@ from .workspace_manager import WorkspaceManager
 from .plugins import get_plugin_manager
 from .plugins.detector import PluginDetector
 from .plugins.health_monitor import PluginHealthMonitor
+from .templates.extension_creator import ExtensionCreator
 from datetime import datetime
 
 
@@ -463,6 +464,79 @@ class WebSocketServer:
                 await self.state_manager.log("ERROR", f"Failed to get NLP status: {str(e)}")
                 await websocket.send(json.dumps({
                     "type": "nlp_status",
+                    "error": str(e)
+                }))
+
+        elif msg_type == "execute_tool":
+            # Execute MCP tools (extensions creation, etc.)
+            tool_name = data.get("tool")
+            arguments = data.get("arguments", {})
+
+            if not tool_name:
+                await websocket.send(json.dumps({
+                    "type": "tool_result",
+                    "success": False,
+                    "error": "Tool name is required"
+                }))
+                return
+
+            try:
+                extension_creator = ExtensionCreator()
+
+                if tool_name == "create_widget":
+                    result = extension_creator.create_widget(
+                        name=arguments["name"],
+                        description=arguments.get("description", "A custom widget"),
+                        author=arguments.get("author", "Anonymous"),
+                        category=arguments.get("category", "utility"),
+                        template_type=arguments.get("template_type", "basic"),
+                    )
+                    await self.state_manager.log("INFO", f"Created widget: {arguments['name']}")
+                    await websocket.send(json.dumps({
+                        "type": "tool_result",
+                        "success": True,
+                        "data": result
+                    }))
+
+                elif tool_name == "create_workflow":
+                    result = extension_creator.create_workflow(
+                        name=arguments["name"],
+                        description=arguments.get("description", "A custom workflow"),
+                        author=arguments.get("author", "User"),
+                        version=arguments.get("version", "1.0.0"),
+                    )
+                    await self.state_manager.log("INFO", f"Created workflow: {arguments['name']}")
+                    await websocket.send(json.dumps({
+                        "type": "tool_result",
+                        "success": True,
+                        "data": {"workflow_path": result}
+                    }))
+
+                elif tool_name == "create_integration":
+                    result = extension_creator.create_integration(
+                        name=arguments["name"],
+                        service_type=arguments.get("service_type", "custom"),
+                        config=arguments.get("config", {}),
+                    )
+                    await self.state_manager.log("INFO", f"Created integration: {arguments['name']}")
+                    await websocket.send(json.dumps({
+                        "type": "tool_result",
+                        "success": True,
+                        "data": result
+                    }))
+
+                else:
+                    await websocket.send(json.dumps({
+                        "type": "tool_result",
+                        "success": False,
+                        "error": f"Unknown tool: {tool_name}"
+                    }))
+
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to execute tool {tool_name}: {str(e)}")
+                await websocket.send(json.dumps({
+                    "type": "tool_result",
+                    "success": False,
                     "error": str(e)
                 }))
 

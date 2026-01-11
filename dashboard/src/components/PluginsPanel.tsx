@@ -291,18 +291,84 @@ const PluginsPanel: React.FC<PluginsPanelProps> = ({
             </Alert>
           )}
 
-          {plugins.length === 0 ? (
+          {plugins.length === 0 && (!detectedPlugins || detectedPlugins.length === 0) ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <ExtensionIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
               <Typography variant="body2" color="text.secondary">
                 No plugins installed
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Click "Install" to add MCP server plugins
+                Click "Detect Plugins" to scan for MCP servers or "Install" to add new ones
               </Typography>
             </Box>
           ) : (
             <Box sx={{ maxHeight: '600px', overflowY: 'auto' }}>
+              {/* Show detected plugins first */}
+              {detectedPlugins && detectedPlugins.length > 0 && (
+                <>
+                  <Typography variant="overline" color="text.secondary" sx={{ px: 2, display: 'block', mt: 1 }}>
+                    Detected MCP Servers ({detectedPlugins.length})
+                  </Typography>
+                  {detectedPlugins.map((plugin) => (
+                    <PluginCard key={`detected-${plugin.id}`}>
+                      <Box sx={{ p: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                          <ExtensionIcon sx={{ mr: 1.5, color: 'primary.main' }} />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              {plugin.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {plugin.source === 'system' ? 'System Config' : 'User Installed'} • {plugin.install_path}
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {healthStatuses?.[plugin.id] && (
+                              <Tooltip
+                                title={
+                                  <Box>
+                                    <Typography variant="caption" display="block">
+                                      Status: {healthStatuses[plugin.id].status}
+                                    </Typography>
+                                    {healthStatuses[plugin.id].response_time_ms && (
+                                      <Typography variant="caption" display="block">
+                                        Response: {healthStatuses[plugin.id].response_time_ms.toFixed(0)}ms
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                }
+                              >
+                                <Box>
+                                  {healthStatuses[plugin.id].status === 'healthy' && <CheckCircleIcon sx={{ color: 'success.main' }} />}
+                                  {healthStatuses[plugin.id].status === 'degraded' && <WarningIcon sx={{ color: 'warning.main' }} />}
+                                  {healthStatuses[plugin.id].status === 'down' && <ErrorIcon sx={{ color: 'error.main' }} />}
+                                  {healthStatuses[plugin.id].status === 'unknown' && <HelpOutlineIcon sx={{ color: 'text.disabled' }} />}
+                                </Box>
+                              </Tooltip>
+                            )}
+                            {onCheckHealth && (
+                              <Tooltip title="Check health">
+                                <IconButton size="small" onClick={() => onCheckHealth(plugin.id)}>
+                                  <RefreshIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </Box>
+                      </Box>
+                    </PluginCard>
+                  ))}
+                  {plugins.length > 0 && (
+                    <Divider sx={{ my: 2 }}>
+                      <Typography variant="overline" color="text.secondary">
+                        Managed Plugins
+                      </Typography>
+                    </Divider>
+                  )}
+                </>
+              )}
+
+              {/* Show managed plugins */}
               {plugins.map((plugin) => (
                 <PluginCard key={plugin.id}>
                   <Accordion

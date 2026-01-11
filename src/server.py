@@ -377,7 +377,7 @@ async def list_tools():
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls."""
-    global current_detector, executor
+    global current_detector, executor, workspace_manager
     
     if executor is None:
         init_executor()
@@ -577,8 +577,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text='{"error": "No virtual environment found"}')]
 
         elif name == "list_workspace_repos":
-            global workspace_manager
-
             workspace_root = arguments.get("workspace_root")
             max_depth = arguments.get("max_depth", 2)
 
@@ -596,8 +594,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             }, indent=2))]
 
         elif name == "switch_project":
-            global workspace_manager, current_detector
-
             repo_name = arguments["repo_name"]
 
             if workspace_manager is None:
@@ -632,8 +628,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             }, indent=2))]
 
         elif name == "workspace_status":
-            global workspace_manager
-
             workspace_root = arguments.get("workspace_root")
 
             if workspace_manager is None or (workspace_root and workspace_root != str(workspace_manager.workspace_root)):

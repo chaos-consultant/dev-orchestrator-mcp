@@ -11,6 +11,7 @@ from .config import get_config
 from .executor import ShellExecutor
 from .nlp_service import get_nlp_service
 from .workspace_manager import WorkspaceManager
+from .plugins import get_plugin_manager
 from datetime import datetime
 
 
@@ -57,6 +58,15 @@ class WebSocketServer:
         """Handle incoming WebSocket messages."""
         msg_type = data.get("type")
 
+        try:
+            await self._handle_message_internal(websocket, data, msg_type)
+        except Exception as e:
+            await self.state_manager.log("ERROR", f"Error handling message type '{msg_type}': {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    async def _handle_message_internal(self, websocket, data: dict, msg_type: str):
+        """Internal message handler with error handling."""
         if msg_type == "get_state":
             # Fetch workspace data
             try:
@@ -65,9 +75,10 @@ class WebSocketServer:
             except Exception as e:
                 await self.state_manager.log("ERROR", f"Failed to get workspace: {e}")
 
+            state_dict = await self.state_manager._get_state_dict()
             await websocket.send(json.dumps({
                 "type": "state",
-                "data": self.state_manager.state.to_dict()
+                "data": state_dict
             }))
 
         elif msg_type == "approve":
@@ -233,6 +244,68 @@ class WebSocketServer:
                     "success": True,
                     "id": command_id
                 }))
+
+        elif msg_type == "list_plugins":
+            plugin_manager = get_plugin_manager()
+            plugins = await plugin_manager.list_installed()
+            await websocket.send(json.dumps({
+                "type": "plugins",
+                "data": [p.model_dump(mode="json") for p in plugins]
+            }))
+
+        elif msg_type == "install_plugin":
+            git_url = data.get("git_url")
+            if git_url:
+                plugin_manager = get_plugin_manager()
+                result = await plugin_manager.install(git_url)
+                await websocket.send(json.dumps({
+                    "type": "plugin_installed",
+                    "success": result.success,
+                    "message": result.message,
+                    "error": result.error
+                }))
+                if result.success:
+                    await self.state_manager.log("INFO", f"Plugin installed: {result.message}")
+
+        elif msg_type == "uninstall_plugin":
+            plugin_id = data.get("plugin_id")
+            if plugin_id:
+                plugin_manager = get_plugin_manager()
+                result = await plugin_manager.uninstall(plugin_id)
+                await websocket.send(json.dumps({
+                    "type": "plugin_uninstalled",
+                    "success": result.success,
+                    "message": result.message
+                }))
+                if result.success:
+                    await self.state_manager.log("INFO", f"Plugin uninstalled: {result.message}")
+
+        elif msg_type == "toggle_plugin":
+            plugin_id = data.get("plugin_id")
+            enabled = data.get("enabled")
+            if plugin_id is not None and enabled is not None:
+                plugin_manager = get_plugin_manager()
+                success = await plugin_manager.toggle(plugin_id, enabled)
+                await websocket.send(json.dumps({
+                    "type": "plugin_toggled",
+                    "success": success
+                }))
+                if success:
+                    await self.state_manager.log("INFO", f"Plugin {'enabled' if enabled else 'disabled'}")
+
+        elif msg_type == "toggle_plugin_tool":
+            plugin_id = data.get("plugin_id")
+            tool_name = data.get("tool_name")
+            enabled = data.get("enabled")
+            if plugin_id and tool_name and enabled is not None:
+                plugin_manager = get_plugin_manager()
+                success = await plugin_manager.toggle_tool(plugin_id, tool_name, enabled)
+                await websocket.send(json.dumps({
+                    "type": "plugin_tool_toggled",
+                    "success": success
+                }))
+                if success:
+                    await self.state_manager.log("INFO", f"Tool {tool_name} {'enabled' if enabled else 'disabled'}")
 
         elif msg_type == "ping":
             await websocket.send(json.dumps({"type": "pong"}))

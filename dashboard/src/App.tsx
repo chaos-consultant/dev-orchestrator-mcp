@@ -66,6 +66,8 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 
+import PluginsPanel from './components/PluginsPanel';
+
 // Types
 interface ProjectProfile {
   name: string;
@@ -148,6 +150,26 @@ interface SavedCommand {
   created_at: string;
 }
 
+interface PluginTool {
+  id: string;
+  plugin_id: string;
+  tool_name: string;
+  enabled: boolean;
+}
+
+interface Plugin {
+  id: string;
+  name: string;
+  git_url: string;
+  version?: string;
+  author?: string;
+  description?: string;
+  installed_at: string;
+  enabled: boolean;
+  install_path: string;
+  tools: PluginTool[];
+}
+
 interface AppState {
   current_project?: ProjectProfile;
   services: Record<string, Service>;
@@ -156,6 +178,7 @@ interface AppState {
   logs: LogEntry[];
   workspace?: WorkspaceStatus;
   saved_commands?: SavedCommand[];
+  plugins?: Plugin[];
 }
 
 const WS_URL = 'ws://127.0.0.1:8766';
@@ -474,6 +497,20 @@ const App: React.FC = () => {
           prev ? { ...prev, logs: [] } : null
         );
         break;
+      case 'plugins':
+        setState((prev) =>
+          prev ? { ...prev, plugins: data.data as Plugin[] } : null
+        );
+        break;
+      case 'plugin_installed':
+      case 'plugin_uninstalled':
+      case 'plugin_toggled':
+      case 'plugin_tool_toggled':
+        // Request full plugin list update
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'list_plugins' }));
+        }
+        break;
     }
   }, []);
 
@@ -486,6 +523,7 @@ const App: React.FC = () => {
       setConnected(true);
       setReconnectAttempts(0);
       ws.send(JSON.stringify({ type: 'get_state' }));
+      ws.send(JSON.stringify({ type: 'list_plugins' }));
     };
 
     ws.onmessage = (event) => {
@@ -605,6 +643,54 @@ const App: React.FC = () => {
           type: 'run_command',
           command: cmd.command,
           cwd: cmd.cwd,
+        })
+      );
+    }
+  };
+
+  // Plugin operations
+  const handleInstallPlugin = async (gitUrl: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'install_plugin',
+          git_url: gitUrl,
+        })
+      );
+    }
+  };
+
+  const handleUninstallPlugin = async (pluginId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'uninstall_plugin',
+          plugin_id: pluginId,
+        })
+      );
+    }
+  };
+
+  const handleTogglePlugin = async (pluginId: string, enabled: boolean) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'toggle_plugin',
+          plugin_id: pluginId,
+          enabled: enabled,
+        })
+      );
+    }
+  };
+
+  const handleToggleTool = async (pluginId: string, toolName: string, enabled: boolean) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'toggle_plugin_tool',
+          plugin_id: pluginId,
+          tool_name: toolName,
+          enabled: enabled,
         })
       );
     }
@@ -1263,6 +1349,15 @@ const App: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={6} lg={4}>
             {renderServicesCard()}
+          </Grid>
+          <Grid item xs={12} md={6} lg={4}>
+            <PluginsPanel
+              plugins={state?.plugins || []}
+              onInstallPlugin={handleInstallPlugin}
+              onUninstallPlugin={handleUninstallPlugin}
+              onTogglePlugin={handleTogglePlugin}
+              onToggleTool={handleToggleTool}
+            />
           </Grid>
           <Grid item xs={12} md={12} lg={4}>
             {renderCommandsPanel()}

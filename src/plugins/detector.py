@@ -77,14 +77,33 @@ class PluginDetector:
                 # Parse MCP config structure
                 mcp_servers = config.get('mcpServers', {})
                 for server_name, server_config in mcp_servers.items():
+                    command = server_config.get('command', '')
+                    args = server_config.get('args', [])
+
+                    # Determine install path from command and args
+                    install_path = command
+                    if args:
+                        # If using npx, the package name is usually after -y flag
+                        if command == 'npx' and len(args) > 0:
+                            # Find the package name (skip flags like -y)
+                            for arg in args:
+                                if not arg.startswith('-'):
+                                    install_path = f"npx {arg}"
+                                    break
+                        # If using node, the script path is the first arg
+                        elif command == 'node' and len(args) > 0:
+                            install_path = args[0]
+
                     plugin_info = {
                         'id': server_name,
                         'name': server_name,
-                        'install_path': server_config.get('command', ''),
+                        'install_path': install_path,
                         'source': 'system',
                         'config_file': str(config_path),
                         'env': server_config.get('env', {}),
-                        'args': server_config.get('args', []),
+                        'command': command,
+                        'args': args,
+                        'runtime': 'node' if command in ['node', 'npx'] else 'unknown',
                     }
                     plugins.append(plugin_info)
 

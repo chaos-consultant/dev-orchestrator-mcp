@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -101,45 +102,63 @@ class PluginHealthMonitor:
         This executes the MCP server and sends a list_tools request.
         """
         plugin_id = plugin_info['id']
-        install_path = Path(plugin_info['install_path'])
-
         start_time = time.time()
 
-        # Determine how to run the server
-        runtime = plugin_info.get('runtime', 'python')
-
         try:
-            if runtime == 'python':
-                # Python MCP server
-                server_file = self._find_server_file(install_path, ['server.py', 'main.py', '__main__.py'])
-                if not server_file:
-                    raise FileNotFoundError("No Python server file found")
+            # Check if plugin has explicit command and args (from system configs like Claude Desktop)
+            if 'command' in plugin_info and 'args' in plugin_info:
+                command = plugin_info['command']
+                args = plugin_info['args']
+                env = plugin_info.get('env', {})
 
-                # Run server with test request
+                # Merge env with current environment
+                full_env = {**os.environ, **env}
+
+                # Run the MCP server with its configured command
                 process = await asyncio.create_subprocess_exec(
-                    'python3', str(server_file),
+                    command,
+                    *args,
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=str(install_path)
-                )
-
-            elif runtime == 'node':
-                # Node.js MCP server
-                package_json = install_path / "package.json"
-                if not package_json.exists():
-                    raise FileNotFoundError("No package.json found")
-
-                # Run via npm or node
-                process = await asyncio.create_subprocess_exec(
-                    'npm', 'start',
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(install_path)
+                    env=full_env
                 )
             else:
-                raise ValueError(f"Unknown runtime: {runtime}")
+                # Fall back to detecting runtime from install_path
+                install_path = Path(plugin_info['install_path'])
+                runtime = plugin_info.get('runtime', 'python')
+
+                if runtime == 'python':
+                    # Python MCP server
+                    server_file = self._find_server_file(install_path, ['server.py', 'main.py', '__main__.py'])
+                    if not server_file:
+                        raise FileNotFoundError("No Python server file found")
+
+                    # Run server with test request
+                    process = await asyncio.create_subprocess_exec(
+                        'python3', str(server_file),
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=str(install_path)
+                    )
+
+                elif runtime == 'node':
+                    # Node.js MCP server
+                    package_json = install_path / "package.json"
+                    if not package_json.exists():
+                        raise FileNotFoundError("No package.json found")
+
+                    # Run via npm or node
+                    process = await asyncio.create_subprocess_exec(
+                        'npm', 'start',
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=str(install_path)
+                    )
+                else:
+                    raise ValueError(f"Unknown runtime: {runtime}")
 
             # Send list_tools request via stdio
             list_tools_request = json.dumps({

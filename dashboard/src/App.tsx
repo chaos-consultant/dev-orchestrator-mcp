@@ -583,6 +583,7 @@ const App: React.FC = () => {
       setReconnectAttempts(0);
       ws.send(JSON.stringify({ type: 'get_state' }));
       ws.send(JSON.stringify({ type: 'list_plugins' }));
+      ws.send(JSON.stringify({ type: 'detect_plugins' }));
     };
 
     ws.onmessage = (event) => {
@@ -1449,10 +1450,16 @@ const App: React.FC = () => {
         <Grid item xs={12} md={6} lg={4}>
           {Object.values(state?.services || {}).length > 0 && renderServicesCard()}
         </Grid>
-        {(state?.plugins || []).filter(p => p.enabled).length > 0 && (
+        {((state?.plugins || []).filter(p => p.enabled).length > 0 || detectedPlugins.length > 0) && (
           <Grid item xs={12} md={6} lg={4}>
             <PluginHealthWidget
-              plugins={state?.plugins || []}
+              plugins={[...(state?.plugins || []), ...detectedPlugins.map(d => ({
+                id: d.id,
+                name: d.name,
+                enabled: true,
+                install_path: d.install_path,
+                tools: []
+              }))]}
               healthStatuses={healthStatuses}
               onCheckAllHealth={handleCheckAllPluginsHealth}
               checking={checkingHealth}

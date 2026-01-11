@@ -279,9 +279,9 @@
       "name": "Jira Integration",
       "description": "Create and manage Jira issues, search projects, update tickets, and integrate with Atlassian Jira. Built by Dev Orchestrator team.",
       "author": "Dev Orchestrator Team",
-      "author_url": "https://github.com/your-org",
+      "author_url": "https://github.com/chaos-consultant",
       "category": "integration",
-      "git_url": "https://github.com/your-org/dev-orchestrator-plugins.git",
+      "git_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins.git",
       "subdirectory": "official/jira-integration",
       "version": "1.0.0",
       "mcp_version": "1.0",
@@ -306,7 +306,7 @@
         "JIRA_EMAIL",
         "JIRA_API_TOKEN"
       ],
-      "documentation_url": "https://github.com/your-org/dev-orchestrator-plugins/tree/main/official/jira-integration",
+      "documentation_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins/tree/main/official/jira-integration",
       "downloads": 0,
       "rating": 0,
       "security_notes": "Requires Jira API token. Maintained by Dev Orchestrator team."
@@ -316,9 +316,9 @@
       "name": "Docker Manager",
       "description": "Manage Docker containers, images, networks, and volumes. Start/stop services, view logs, and monitor containers.",
       "author": "Dev Orchestrator Team",
-      "author_url": "https://github.com/your-org",
+      "author_url": "https://github.com/chaos-consultant",
       "category": "infrastructure",
-      "git_url": "https://github.com/your-org/dev-orchestrator-plugins.git",
+      "git_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins.git",
       "subdirectory": "official/docker-manager",
       "version": "1.0.0",
       "mcp_version": "1.0",
@@ -340,7 +340,7 @@
         "pip": ["docker>=7.0.0"]
       },
       "required_env": [],
-      "documentation_url": "https://github.com/your-org/dev-orchestrator-plugins/tree/main/official/docker-manager",
+      "documentation_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins/tree/main/official/docker-manager",
       "downloads": 0,
       "rating": 0,
       "security_notes": "⚠️ Can control Docker daemon. Requires Docker socket access."
@@ -350,9 +350,9 @@
       "name": "Database Query Runner",
       "description": "Execute SQL queries safely across MySQL, PostgreSQL, SQLite with query validation, explain plans, and result formatting.",
       "author": "Dev Orchestrator Team",
-      "author_url": "https://github.com/your-org",
+      "author_url": "https://github.com/chaos-consultant",
       "category": "database",
-      "git_url": "https://github.com/your-org/dev-orchestrator-plugins.git",
+      "git_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins.git",
       "subdirectory": "official/database-query",
       "version": "1.0.0",
       "mcp_version": "1.0",
@@ -373,7 +373,7 @@
       "required_env": [
         "DATABASE_URL"
       ],
-      "documentation_url": "https://github.com/your-org/dev-orchestrator-plugins/tree/main/official/database-query",
+      "documentation_url": "https://github.com/chaos-consultant/dev-orchestrator-plugins/tree/main/official/database-query",
       "downloads": 0,
       "rating": 0,
       "security_notes": "⚠️ Database access. Use read-only credentials. Query validation included."

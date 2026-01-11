@@ -1,9 +1,11 @@
-"""Natural Language Processing service using Ollama for command translation."""
+"""Natural Language Processing service using multiple providers for command translation."""
 
-import json
+import os
 from typing import Optional, Literal
-import httpx
 from dataclasses import dataclass
+
+from .nlp.manager import NLPManager
+from .nlp.base import NLPContext
 
 
 @dataclass
@@ -16,54 +18,85 @@ class CommandIntent:
     parameters: Optional[dict] = None
 
 
-class OllamaNLPService:
-    """NLP service using Ollama for natural language command translation."""
+class NLPService:
+    """
+    NLP service that uses multiple providers for natural language command translation.
 
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "granite3-dense:8b"):
-        self.base_url = base_url
-        self.model = model
-        self.system_prompt = """You are a command translation assistant for a dev orchestrator tool.
+    Supports:
+    - Local Ollama models (CodeLlama, WizardCoder, DeepSeek)
+    - OpenAI API (GPT-3.5, GPT-4)
+    - Google Gemini API (Gemini Pro, 1.5 Pro)
+    - Anthropic Claude API (Claude 3.5 Sonnet/Haiku)
+    - Command templates for instant matching
+    """
 
-Available MCP tools:
-- detect_project: Detect project type and configuration (args: path)
-- start_service: Start a dev service (args: service=[backend|frontend|test|all], port)
-- stop_service: Stop a running service (args: service_id)
-- git_status: Get git status for current project
-- list_services: List all running services
-- run_tests: Run project tests
-- check_ports: Check which ports are in use
+    def __init__(self, config: Optional[dict] = None):
+        """
+        Initialize NLP service with configuration.
 
-Convert natural language to either:
-1. Shell command (for file operations, directory navigation, etc.)
-2. MCP tool call (for project detection, service management, etc.)
+        Args:
+            config: NLP configuration dict. If None, uses default config.
+        """
+        if config is None:
+            config = self._load_default_config()
 
-Respond in JSON format:
-{
-  "type": "shell" or "detect_project" or "start_service" etc.,
-  "command": "the actual command or tool name",
-  "confidence": 0.0-1.0,
-  "reasoning": "brief explanation",
-  "parameters": {"key": "value"} (for MCP tools only)
-}
+        self.config = config
+        self.nlp_manager = NLPManager(config)
 
-Examples:
-Input: "list files in current directory"
-Output: {"type": "shell", "command": "ls -la", "confidence": 0.95, "reasoning": "Basic file listing command"}
+    def _load_default_config(self) -> dict:
+        """Load default NLP configuration."""
+        return {
+            'enabled': True,
+            'primary_provider': 'ollama',
+            'fallback_to_local': True,
+            'template': {
+                'enabled': True,
+            },
+            'providers': {
+                'ollama': {
+                    'enabled': True,
+                    'ollama_url': os.getenv('OLLAMA_URL', 'http://localhost:11434'),
+                    'model': os.getenv('OLLAMA_MODEL', 'codellama:7b-instruct'),
+                    'temperature': 0.1,
+                    'max_tokens': 512,
+                },
+                'openai': {
+                    'enabled': False,
+                    'api_key': os.getenv('OPENAI_API_KEY', ''),
+                    'model': 'gpt-3.5-turbo',
+                    'temperature': 0.1,
+                    'max_tokens': 150,
+                },
+                'gemini': {
+                    'enabled': False,
+                    'api_key': os.getenv('GEMINI_API_KEY', ''),
+                    'model': 'gemini-pro',
+                    'tier': 'free',
+                    'temperature': 0.1,
+                    'max_tokens': 150,
+                },
+                'anthropic': {
+                    'enabled': False,
+                    'api_key': os.getenv('ANTHROPIC_API_KEY', ''),
+                    'model': 'claude-3-5-sonnet-20241022',
+                    'temperature': 0.1,
+                    'max_tokens': 150,
+                },
+            }
+        }
 
-Input: "detect the webapp-ui project"
-Output: {"type": "detect_project", "command": "detect_project", "confidence": 0.9, "reasoning": "User wants to detect a project", "parameters": {"path": "webapp-ui"}}
+    async def parse_natural_language(self, natural_language: str, cwd: str = ".") -> CommandIntent:
+        """
+        Parse natural language input and return command intent.
 
-Input: "start the backend server"
-Output: {"type": "start_service", "command": "start_service", "confidence": 0.9, "reasoning": "User wants to start a service", "parameters": {"service": "backend"}}
+        Args:
+            natural_language: Natural language command
+            cwd: Current working directory
 
-Input: "what's the git status"
-Output: {"type": "git_status", "command": "git_status", "confidence": 0.95, "reasoning": "User wants git repository status"}
-"""
-
-    async def parse_natural_language(self, natural_language: str) -> CommandIntent:
-        """Parse natural language input and return command intent."""
-
-        # Quick pattern matching for common cases (faster than LLM)
+        Returns:
+            CommandIntent with translated command
+        """
+        # Quick check if it's already a shell command
         if self._is_shell_command(natural_language):
             return CommandIntent(
                 type="shell",
@@ -72,57 +105,37 @@ Output: {"type": "git_status", "command": "git_status", "confidence": 0.95, "rea
                 reasoning="Direct shell command detected"
             )
 
-        # Use Ollama for complex natural language
+        # Build context
+        context = NLPContext(
+            cwd=cwd,
+            os_type=os.uname().sysname if hasattr(os, 'uname') else 'Darwin',
+            shell_type=os.getenv('SHELL', '/bin/bash').split('/')[-1],
+            project_type=None,  # Could be enhanced to detect project type
+            recent_commands=None  # Could be enhanced with command history
+        )
+
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json={
-                        "model": self.model,
-                        "prompt": f"{self.system_prompt}\n\nInput: {natural_language}\nOutput:",
-                        "stream": False,
-                        "format": "json"
-                    }
-                )
+            # Use NLP manager to translate
+            result = await self.nlp_manager.translate(natural_language, context)
 
-                if response.status_code == 200:
-                    result = response.json()
-                    response_text = result.get("response", "")
+            # Determine intent type based on command content
+            intent_type = self._classify_command(result.command)
 
-                    # Parse JSON response
-                    try:
-                        intent_data = json.loads(response_text)
-                        return CommandIntent(
-                            type=intent_data.get("type", "unknown"),
-                            command=intent_data.get("command", natural_language),
-                            confidence=float(intent_data.get("confidence", 0.5)),
-                            reasoning=intent_data.get("reasoning", ""),
-                            parameters=intent_data.get("parameters")
-                        )
-                    except json.JSONDecodeError:
-                        # Fallback: treat as shell command
-                        return CommandIntent(
-                            type="shell",
-                            command=natural_language,
-                            confidence=0.3,
-                            reasoning="Failed to parse LLM response, treating as shell command"
-                        )
-                else:
-                    # Non-200 status code from Ollama
-                    return CommandIntent(
-                        type="shell",
-                        command=natural_language,
-                        confidence=0.2,
-                        reasoning=f"Ollama returned status {response.status_code}"
-                    )
+            return CommandIntent(
+                type=intent_type,
+                command=result.command,
+                confidence=result.confidence,
+                reasoning=result.explanation or f"Translated by {result.source}",
+                parameters=None  # Could be enhanced to extract parameters
+            )
 
         except Exception as e:
-            # Fallback: treat as shell command if Ollama is unavailable
+            # Fallback: treat as shell command if translation fails
             return CommandIntent(
                 type="shell",
                 command=natural_language,
                 confidence=0.1,
-                reasoning=f"Ollama unavailable ({str(e)}), treating as shell command"
+                reasoning=f"Translation failed ({str(e)}), treating as shell command"
             )
 
     def _is_shell_command(self, text: str) -> bool:
@@ -138,27 +151,85 @@ Output: {"type": "git_status", "command": "git_status", "confidence": 0.95, "rea
             text.startswith("git "),
             text.startswith("npm"),
             text.startswith("python"),
+            text.startswith("docker"),
+            text.startswith("kubectl"),
             text.startswith("./"),
             "/" in text and not " " in text.split("/")[0],  # Looks like a path
         ]
         return any(shell_indicators)
 
-    async def test_connection(self) -> bool:
-        """Test if Ollama is available."""
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
-                return response.status_code == 200
-        except Exception:
-            return False
+    def _classify_command(self, command: str) -> Literal["shell", "detect_project", "start_service", "stop_service", "git_status", "list_services", "unknown"]:
+        """
+        Classify command type for intent detection.
+
+        This is a simple heuristic - could be enhanced with ML classification.
+        """
+        # Check for MCP tool patterns
+        if any(pattern in command.lower() for pattern in ['detect', 'project', 'analyze']):
+            return "detect_project"
+        elif any(pattern in command.lower() for pattern in ['start', 'run', 'launch']) and 'service' in command.lower():
+            return "start_service"
+        elif any(pattern in command.lower() for pattern in ['stop', 'kill']) and 'service' in command.lower():
+            return "stop_service"
+        elif 'git status' in command.lower() or 'git st' in command.lower():
+            return "git_status"
+        elif 'list' in command.lower() and 'service' in command.lower():
+            return "list_services"
+
+        # Default to shell command
+        return "shell"
+
+    async def test_connection(self) -> dict[str, bool]:
+        """
+        Test connection to all configured providers.
+
+        Returns:
+            Dict mapping provider name to connection status
+        """
+        return await self.nlp_manager.test_providers()
+
+    async def update_config(self, new_config: dict):
+        """
+        Update NLP configuration and reinitialize manager.
+
+        Args:
+            new_config: New configuration dict
+        """
+        self.config = new_config
+        self.nlp_manager = NLPManager(new_config)
+
+    def get_config(self) -> dict:
+        """Get current NLP configuration."""
+        return self.config
+
+    def get_status(self) -> dict:
+        """Get status of all providers."""
+        return self.nlp_manager.get_provider_status()
+
+    async def learn_from_correction(self, user_input: str, correct_command: str):
+        """
+        Learn from user corrections by adding to template database.
+
+        Args:
+            user_input: The original natural language input
+            correct_command: The command the user actually used
+        """
+        await self.nlp_manager.learn_from_correction(user_input, correct_command)
 
 
 # Singleton instance
-_nlp_service: Optional[OllamaNLPService] = None
+_nlp_service: Optional[NLPService] = None
 
-def get_nlp_service() -> OllamaNLPService:
+
+def get_nlp_service() -> NLPService:
     """Get or create NLP service singleton."""
     global _nlp_service
     if _nlp_service is None:
-        _nlp_service = OllamaNLPService()
+        _nlp_service = NLPService()
     return _nlp_service
+
+
+def reset_nlp_service():
+    """Reset NLP service singleton (useful for testing or reloading config)."""
+    global _nlp_service
+    _nlp_service = None

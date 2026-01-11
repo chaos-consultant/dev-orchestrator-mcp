@@ -106,7 +106,7 @@ class WebSocketServer:
                     # If NLP is enabled, translate natural language to command
                     if use_nlp:
                         nlp_service = get_nlp_service()
-                        intent = await nlp_service.parse_natural_language(command)
+                        intent = await nlp_service.parse_natural_language(command, cwd)
 
                         await self.state_manager.log(
                             "INFO",
@@ -306,6 +306,87 @@ class WebSocketServer:
                 }))
                 if success:
                     await self.state_manager.log("INFO", f"Tool {tool_name} {'enabled' if enabled else 'disabled'}")
+
+        elif msg_type == "configure_nlp":
+            # Configure NLP settings
+            config = data.get("config")
+            if config:
+                try:
+                    nlp_service = get_nlp_service()
+                    await nlp_service.update_config(config)
+                    await self.state_manager.log("INFO", f"NLP configured with provider: {config.get('primary_provider')}")
+                    await websocket.send(json.dumps({
+                        "type": "nlp_configured",
+                        "success": True
+                    }))
+                except Exception as e:
+                    await self.state_manager.log("ERROR", f"Failed to configure NLP: {str(e)}")
+                    await websocket.send(json.dumps({
+                        "type": "nlp_configured",
+                        "success": False,
+                        "error": str(e)
+                    }))
+
+        elif msg_type == "test_nlp_provider":
+            # Test NLP provider connection
+            provider_name = data.get("provider")
+            try:
+                nlp_service = get_nlp_service()
+                test_results = await nlp_service.test_connection()
+
+                if provider_name:
+                    # Test specific provider
+                    result = test_results.get(provider_name, False)
+                    await websocket.send(json.dumps({
+                        "type": "nlp_provider_tested",
+                        "provider": provider_name,
+                        "success": result
+                    }))
+                else:
+                    # Test all providers
+                    await websocket.send(json.dumps({
+                        "type": "nlp_providers_tested",
+                        "results": test_results
+                    }))
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to test NLP provider: {str(e)}")
+                await websocket.send(json.dumps({
+                    "type": "nlp_provider_tested",
+                    "success": False,
+                    "error": str(e)
+                }))
+
+        elif msg_type == "get_nlp_config":
+            # Get current NLP configuration
+            try:
+                nlp_service = get_nlp_service()
+                config = nlp_service.get_config()
+                await websocket.send(json.dumps({
+                    "type": "nlp_config",
+                    "config": config
+                }))
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to get NLP config: {str(e)}")
+                await websocket.send(json.dumps({
+                    "type": "nlp_config",
+                    "error": str(e)
+                }))
+
+        elif msg_type == "get_nlp_status":
+            # Get NLP providers status
+            try:
+                nlp_service = get_nlp_service()
+                status = nlp_service.get_status()
+                await websocket.send(json.dumps({
+                    "type": "nlp_status",
+                    "status": status
+                }))
+            except Exception as e:
+                await self.state_manager.log("ERROR", f"Failed to get NLP status: {str(e)}")
+                await websocket.send(json.dumps({
+                    "type": "nlp_status",
+                    "error": str(e)
+                }))
 
         elif msg_type == "ping":
             await websocket.send(json.dumps({"type": "pong"}))

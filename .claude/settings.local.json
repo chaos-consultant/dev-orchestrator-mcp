@@ -78,7 +78,10 @@
       "Bash(git clone:*)",
       "Bash(npm run:*)",
       "Bash(npx tsc --noEmit)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:github.com)",
+      "mcp__github__search_code",
+      "WebSearch"
     ]
   }
 }

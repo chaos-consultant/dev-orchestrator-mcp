@@ -242,13 +242,17 @@ const App: React.FC = () => {
   const [state, setState] = useState<AppState | null>(null);
   const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
   const [commandInput, setCommandInput] = useState('');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true); // Dark mode by default
   const [logFilter, setLogFilter] = useState<string>('all');
   const [selectedCommand, setSelectedCommand] = useState<CommandHistory | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [useNlp, setUseNlp] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [runTour, setRunTour] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => {
+    const dismissed = localStorage.getItem('welcome_tour_dismissed');
+    return !dismissed; // Show modal if not dismissed before
+  });
   const [tourCompleted, setTourCompleted] = useState(() => {
     const completed = localStorage.getItem('tour_completed');
     return completed ? JSON.parse(completed) : {};
@@ -1441,31 +1445,60 @@ const App: React.FC = () => {
       {renderApprovalsCard()}
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6} lg={4}>
+        {/* Row 1: Project Info & Services */}
+        <Grid item xs={12} md={6}>
           {renderProjectCard()}
         </Grid>
-        <Grid item xs={12} md={6} lg={4}>
+        <Grid item xs={12} md={6}>
+          {renderServicesCard()}
+        </Grid>
+
+        {/* Row 2: Plugin Health & Extensions Monitor */}
+        <Grid item xs={12} md={6}>
+          <PluginHealthWidget
+            plugins={[...(state?.plugins || []), ...detectedPlugins.map(d => ({
+              id: d.id,
+              name: d.name,
+              enabled: true,
+              install_path: d.install_path,
+              tools: []
+            }))]}
+            healthStatuses={healthStatuses}
+            onCheckAllHealth={handleCheckAllPluginsHealth}
+            checking={checkingHealth}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          {/* Extensions Monitor - Placeholder for future */}
+          <Card>
+            <CardHeader
+              avatar={<CubesIcon />}
+              title="Extensions"
+              subheader="Widgets, Workflows & Integrations"
+            />
+            <CardContent>
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <CubesIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No extensions installed yet
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 2 }}
+                  onClick={() => setCurrentView('extensions')}
+                >
+                  Browse Extensions
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Row 3: Command History */}
+        <Grid item xs={12}>
           {renderCommandsPanel()}
         </Grid>
-        <Grid item xs={12} md={6} lg={4}>
-          {Object.values(state?.services || {}).length > 0 && renderServicesCard()}
-        </Grid>
-        {((state?.plugins || []).filter(p => p.enabled).length > 0 || detectedPlugins.length > 0) && (
-          <Grid item xs={12} md={6} lg={4}>
-            <PluginHealthWidget
-              plugins={[...(state?.plugins || []), ...detectedPlugins.map(d => ({
-                id: d.id,
-                name: d.name,
-                enabled: true,
-                install_path: d.install_path,
-                tools: []
-              }))]}
-              healthStatuses={healthStatuses}
-              onCheckAllHealth={handleCheckAllPluginsHealth}
-              checking={checkingHealth}
-            />
-          </Grid>
-        )}
       </Grid>
     </>
   );
@@ -2022,6 +2055,88 @@ const App: React.FC = () => {
           </Button>
           <Button onClick={() => setShowHelp(false)} variant="contained">
             Got It
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Welcome Modal */}
+      <Dialog
+        open={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>
+          <Box sx={{ mb: 2 }}>
+            <ServerIcon sx={{ fontSize: 64, color: 'primary.main' }} />
+          </Box>
+          <Typography variant="h4" component="div" fontWeight={600}>
+            Welcome to Dev Orchestrator
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3}>
+            <Typography variant="body1" color="text.secondary" textAlign="center">
+              Your AI-powered development command center with MCP server integration
+            </Typography>
+
+            <Box sx={{ bgcolor: 'background.default', p: 3, borderRadius: 2 }}>
+              <Stack spacing={2}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                  <CheckCircleIcon sx={{ color: 'success.main', mt: 0.5 }} />
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600}>Natural Language Commands</Typography>
+                    <Typography variant="body2" color="text.secondary">Execute commands using plain English</Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                  <CheckCircleIcon sx={{ color: 'success.main', mt: 0.5 }} />
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600}>MCP Plugin Integration</Typography>
+                    <Typography variant="body2" color="text.secondary">Connect to GitHub, Slack, Databases, and more</Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                  <CheckCircleIcon sx={{ color: 'success.main', mt: 0.5 }} />
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600}>Project Management</Typography>
+                    <Typography variant="body2" color="text.secondary">Monitor services, track history, manage workspaces</Typography>
+                  </Box>
+                </Box>
+              </Stack>
+            </Box>
+
+            <Alert severity="info" icon={<InfoIcon />}>
+              Take the guided tour to learn about all features, or explore on your own!
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => {
+              localStorage.setItem('welcome_tour_dismissed', 'true');
+              setShowWelcomeModal(false);
+            }}
+            variant="text"
+          >
+            Don't Show Again
+          </Button>
+          <Box sx={{ flex: 1 }} />
+          <Button
+            onClick={() => setShowWelcomeModal(false)}
+            variant="outlined"
+          >
+            Skip
+          </Button>
+          <Button
+            onClick={() => {
+              setShowWelcomeModal(false);
+              setRunTour(true);
+            }}
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+          >
+            Start Tour
           </Button>
         </DialogActions>
       </Dialog>

@@ -25,28 +25,33 @@ export const dashboardTourSteps: Step[] = [
     placement: 'bottom',
   },
   {
-    target: '[class*="MuiGrid-root"] [class*="MuiCard-root"]:first-child',
-    content: 'Your current project is shown here in a compact view with path, type, git branch, and venv status as badges.',
-    placement: 'top',
+    target: '[class*="MuiGrid-root"] > [class*="MuiGrid-root"]:nth-of-type(1)',
+    content: 'Your current project is shown here with path, type, git branch, and venv status. Quickly see what you\'re working on at a glance.',
+    placement: 'bottom',
   },
   {
-    target: '[class*="MuiGrid-root"] [class*="MuiCard-root"]:nth-child(2)',
-    content: 'Recent commands and saved commands appear here. Save frequently-used commands for quick access.',
-    placement: 'top',
+    target: '[class*="MuiGrid-root"] > [class*="MuiGrid-root"]:nth-of-type(2)',
+    content: 'Running services appear here. Start backend servers, frontend dev servers, or any long-running process. Click Stop to terminate a service.',
+    placement: 'bottom',
   },
   {
-    target: '[class*="MuiGrid-root"] [class*="MuiCard-root"]:nth-child(3)',
-    content: 'Running services are shown here when active. Click Stop to terminate a service.',
-    placement: 'top',
+    target: '[class*="MuiGrid-root"] > [class*="MuiGrid-root"]:nth-of-type(3)',
+    content: 'Plugin Health Monitor: See all detected MCP servers from Claude Desktop, Cursor, and other configs. Check response times and health status with one click.',
+    placement: 'bottom',
   },
   {
-    target: '[class*="MuiGrid-root"] > [class*="MuiGrid-root"]:last-child',
-    content: 'Your workspace repositories are displayed in a compact grid. Each card shows git status with colored borders: green=clean, yellow=changes, blue=ahead, red=behind. Click any repo to switch.',
+    target: '[class*="MuiGrid-root"] > [class*="MuiGrid-root"]:nth-of-type(4)',
+    content: 'Extensions Monitor: Track custom widgets, workflows, and integrations. Click "Browse Extensions" to explore available extensions.',
+    placement: 'bottom',
+  },
+  {
+    target: '[class*="MuiGrid-root"] > [class*="MuiGrid-root"]:nth-of-type(5)',
+    content: 'Command History & Saved Commands: View recent command executions and save frequently-used commands for quick access.',
     placement: 'top',
   },
   {
     target: '.MuiDrawer-root [data-testid="ExtensionIcon"]',
-    content: 'Visit the Plugins page to install MCP servers from the marketplace or Git URLs. Core plugins like GitHub, Slack, and Filesystem are built-in.',
+    content: 'Visit the Plugins page to browse the marketplace, install MCP servers from Git URLs, or create your own custom plugins.',
     placement: 'right',
   },
   {
@@ -56,7 +61,7 @@ export const dashboardTourSteps: Step[] = [
   },
   {
     target: 'body',
-    content: 'That\'s it! You\'re ready to use Dev Orchestrator. Explore Settings to configure NLP providers, dark mode, and more.',
+    content: 'That\'s it! You\'re ready to use Dev Orchestrator. Explore Settings to configure NLP providers, customize your experience, and more.',
     placement: 'center',
   },
 ];

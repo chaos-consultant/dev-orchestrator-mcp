@@ -258,8 +258,8 @@ async def run_websocket_server():
     config = get_config()
     server = WebSocketServer(config.host, config.websocket_port)
 
-    # Load persisted state
-    server.state_manager.load_state()
+    # Initialize database
+    await server.state_manager.initialize_db()
 
     await server.start()
     

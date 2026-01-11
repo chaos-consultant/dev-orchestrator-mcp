@@ -2,14 +2,19 @@
 
 import asyncio
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Optional, Any
 import websockets
 from websockets.server import WebSocketServerProtocol
 
 from .config import get_config, ProjectProfile
+from .database.engine import get_session_maker, init_db
+from .database.repositories import (
+    CommandRepository,
+    SavedCommandRepository,
+    ProjectRepository,
+)
 
 
 @dataclass
@@ -25,52 +30,49 @@ class ServiceInfo:
     status: str = "running"
 
 
-@dataclass
-class AppState:
-    """Global application state."""
-    current_project: Optional[ProjectProfile] = None
-    services: dict[str, ServiceInfo] = field(default_factory=dict)
-    command_history: list[dict] = field(default_factory=list)
-    pending_approvals: list[dict] = field(default_factory=list)
-    logs: list[dict] = field(default_factory=list)
-    workspace: Optional[dict] = None
-    saved_commands: list[dict] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        """Convert state to dictionary for JSON serialization."""
-        result = {
-            "current_project": self.current_project.model_dump(mode='json') if self.current_project else None,
-            "services": {
-                k: {
-                    "id": v.id,
-                    "name": v.name,
-                    "command": v.command,
-                    "cwd": v.cwd,
-                    "port": v.port,
-                    "pid": v.pid,
-                    "started_at": v.started_at.isoformat(),
-                    "status": v.status
-                }
-                for k, v in self.services.items()
-            },
-            "command_history": self.command_history[-50:],
-            "pending_approvals": self.pending_approvals,
-            "logs": self.logs[-100:],
-        }
-        if self.workspace:
-            result["workspace"] = self.workspace
-        result["saved_commands"] = self.saved_commands
-        return result
+# Removed AppState dataclass - now using database repositories
 
 
 class StateManager:
     """Manages application state and broadcasts updates."""
-    
+
     def __init__(self):
-        self.state = AppState()
+        # WebSocket clients
         self.clients: set[WebSocketServerProtocol] = set()
-        self._log_buffer: list[dict] = []
         self._lock = asyncio.Lock()
+
+        # Ephemeral state (not persisted to database)
+        self.current_project: Optional[ProjectProfile] = None
+        self.services: dict[str, ServiceInfo] = {}
+        self.pending_approvals: list[dict] = []
+        self.workspace: Optional[dict] = None
+
+        # Database session and repositories
+        self.session_maker = None
+        self.command_repo: Optional[CommandRepository] = None
+        self.saved_command_repo: Optional[SavedCommandRepository] = None
+        self.project_repo: Optional[ProjectRepository] = None
+        self._db_initialized = False
+
+    async def initialize_db(self):
+        """Initialize database and repositories."""
+        if self._db_initialized:
+            return
+
+        # Initialize database tables
+        await init_db()
+
+        # Create session maker
+        self.session_maker = get_session_maker()
+
+        # Create a session for repositories
+        # We'll use a long-lived session for the state manager
+        session = self.session_maker()
+        self.command_repo = CommandRepository(session)
+        self.saved_command_repo = SavedCommandRepository(session)
+        self.project_repo = ProjectRepository(session)
+
+        self._db_initialized = True
     
     async def broadcast(self, event_type: str, data: Any):
         """Broadcast an event to all connected WebSocket clients."""
@@ -96,17 +98,89 @@ class StateManager:
     
     async def broadcast_state(self):
         """Broadcast full state to all clients."""
-        await self.broadcast("state", self.state.to_dict())
+        # Gather state from repositories and in-memory data
+        state_dict = await self._get_state_dict()
+        await self.broadcast("state", state_dict)
+
+    async def _get_state_dict(self) -> dict:
+        """Build state dictionary from repos and in-memory data."""
+        # Get recent data from database
+        commands = []
+        saved_commands = []
+        logs = []
+
+        if self.command_repo:
+            cmd_list = await self.command_repo.get_recent(50)
+            commands = [
+                {
+                    "id": cmd.id,
+                    "command": cmd.command,
+                    "cwd": cmd.cwd,
+                    "status": cmd.status,
+                    "exit_code": cmd.exit_code,
+                    "timestamp": cmd.timestamp.isoformat(),
+                }
+                for cmd in cmd_list
+            ]
+
+        if self.saved_command_repo:
+            saved_list = await self.saved_command_repo.get_all_with_tags()
+            saved_commands = [
+                {
+                    "id": sc.id,
+                    "name": sc.name,
+                    "command": sc.command,
+                    "cwd": sc.cwd,
+                    "description": sc.description,
+                    "created_at": sc.created_at.isoformat(),
+                    "tags": [tag.name for tag in sc.tags],
+                }
+                for sc in saved_list
+            ]
+
+        # Build state dictionary
+        result = {
+            "current_project": (
+                self.current_project.model_dump(mode="json")
+                if self.current_project
+                else None
+            ),
+            "services": {
+                k: {
+                    "id": v.id,
+                    "name": v.name,
+                    "command": v.command,
+                    "cwd": v.cwd,
+                    "port": v.port,
+                    "pid": v.pid,
+                    "started_at": v.started_at.isoformat(),
+                    "status": v.status,
+                }
+                for k, v in self.services.items()
+            },
+            "command_history": commands,
+            "pending_approvals": self.pending_approvals,
+            "logs": logs,  # Will add log repo later
+            "saved_commands": saved_commands,
+        }
+
+        if self.workspace:
+            result["workspace"] = self.workspace
+
+        return result
     
     async def add_client(self, websocket: WebSocketServerProtocol):
         """Add a new WebSocket client."""
         self.clients.add(websocket)
         # Send current state to new client
-        await websocket.send(json.dumps({
-            "type": "state",
-            "data": self.state.to_dict(),
-            "timestamp": datetime.now().isoformat()
-        }))
+        state_dict = await self._get_state_dict()
+        await websocket.send(
+            json.dumps({
+                "type": "state",
+                "data": state_dict,
+                "timestamp": datetime.now().isoformat(),
+            })
+        )
     
     def remove_client(self, websocket: WebSocketServerProtocol):
         """Remove a WebSocket client."""
@@ -115,60 +189,68 @@ class StateManager:
     async def set_project(self, profile: ProjectProfile):
         """Set current project and broadcast update."""
         async with self._lock:
-            self.state.current_project = profile
-        await self.broadcast("project_changed", profile.model_dump(mode='json'))
+            self.current_project = profile
+        await self.broadcast("project_changed", profile.model_dump(mode="json"))
 
     async def set_workspace(self, workspace_data: dict):
         """Set workspace data and broadcast update."""
         async with self._lock:
-            self.state.workspace = workspace_data
+            self.workspace = workspace_data
         await self.broadcast("workspace", workspace_data)
     
     async def add_service(self, service: ServiceInfo):
         """Add a running service and broadcast update."""
         async with self._lock:
-            self.state.services[service.id] = service
-        await self.broadcast("service_started", {
-            "id": service.id,
-            "name": service.name,
-            "port": service.port,
-            "pid": service.pid
-        })
-    
+            self.services[service.id] = service
+        await self.broadcast(
+            "service_started",
+            {
+                "id": service.id,
+                "name": service.name,
+                "port": service.port,
+                "pid": service.pid,
+            },
+        )
+
     async def remove_service(self, service_id: str):
         """Remove a service and broadcast update."""
         async with self._lock:
-            if service_id in self.state.services:
-                del self.state.services[service_id]
+            if service_id in self.services:
+                del self.services[service_id]
         await self.broadcast("service_stopped", {"id": service_id})
-    
+
     async def update_service_status(self, service_id: str, status: str):
         """Update service status and broadcast."""
         async with self._lock:
-            if service_id in self.state.services:
-                self.state.services[service_id].status = status
+            if service_id in self.services:
+                self.services[service_id].status = status
         await self.broadcast("service_status", {"id": service_id, "status": status})
     
     async def add_command(self, command_info: dict):
         """Add command to history and broadcast."""
-        async with self._lock:
-            self.state.command_history.append(command_info)
-            if len(self.state.command_history) > 100:
-                self.state.command_history = self.state.command_history[-100:]
+        if self.command_repo:
+            await self.command_repo.add_command(
+                command=command_info.get("command", ""),
+                cwd=command_info.get("cwd", "."),
+                status=command_info.get("status", "unknown"),
+                exit_code=command_info.get("exit_code"),
+                stdout=command_info.get("stdout"),
+                stderr=command_info.get("stderr"),
+                project_id=command_info.get("project_id"),
+            )
         await self.broadcast("command", command_info)
     
     async def add_pending_approval(self, approval: dict):
         """Add pending approval and broadcast."""
         async with self._lock:
-            self.state.pending_approvals.append(approval)
+            self.pending_approvals.append(approval)
         await self.broadcast("approval_required", approval)
-    
+
     async def remove_pending_approval(self, approval_id: str):
         """Remove pending approval and broadcast."""
         async with self._lock:
-            self.state.pending_approvals = [
-                a for a in self.state.pending_approvals
-                if a.get("id") != approval_id
+            self.pending_approvals = [
+                a for a in self.pending_approvals if a.get("id") != approval_id
             ]
         await self.broadcast("approval_resolved", {"id": approval_id})
     
@@ -178,56 +260,61 @@ class StateManager:
             "level": level,
             "message": message,
             "source": source,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        async with self._lock:
-            self.state.logs.append(entry)
-            if len(self.state.logs) > 500:
-                self.state.logs = self.state.logs[-500:]
+        # TODO: Add to database when log repository is implemented
+        # For now, logs are not persisted
         await self.broadcast("log", entry)
 
     async def clear_logs(self):
         """Clear all logs and broadcast update."""
-        async with self._lock:
-            self.state.logs = []
+        # TODO: Clear from database when log repository is implemented
         await self.broadcast("logs_cleared", {})
 
     async def add_saved_command(self, command_data: dict):
         """Add a saved command and broadcast update."""
-        async with self._lock:
-            self.state.saved_commands.append(command_data)
-        self.save_state()
-        await self.broadcast("saved_commands", self.state.saved_commands)
+        if self.saved_command_repo:
+            await self.saved_command_repo.add_saved_command(
+                name=command_data.get("name", ""),
+                command=command_data.get("command", ""),
+                cwd=command_data.get("cwd"),
+                description=command_data.get("description"),
+            )
+            # Get all saved commands to broadcast
+            saved_list = await self.saved_command_repo.get_all_with_tags()
+            saved_commands = [
+                {
+                    "id": sc.id,
+                    "name": sc.name,
+                    "command": sc.command,
+                    "cwd": sc.cwd,
+                    "description": sc.description,
+                    "created_at": sc.created_at.isoformat(),
+                    "tags": [tag.name for tag in sc.tags],
+                }
+                for sc in saved_list
+            ]
+            await self.broadcast("saved_commands", saved_commands)
 
     async def remove_saved_command(self, command_id: str):
         """Remove a saved command and broadcast update."""
-        async with self._lock:
-            self.state.saved_commands = [
-                c for c in self.state.saved_commands
-                if c.get("id") != command_id
+        if self.saved_command_repo:
+            await self.saved_command_repo.delete_by_id(command_id)
+            # Get all saved commands to broadcast
+            saved_list = await self.saved_command_repo.get_all_with_tags()
+            saved_commands = [
+                {
+                    "id": sc.id,
+                    "name": sc.name,
+                    "command": sc.command,
+                    "cwd": sc.cwd,
+                    "description": sc.description,
+                    "created_at": sc.created_at.isoformat(),
+                    "tags": [tag.name for tag in sc.tags],
+                }
+                for sc in saved_list
             ]
-        self.save_state()
-        await self.broadcast("saved_commands", self.state.saved_commands)
-
-    def save_state(self):
-        """Save state to disk."""
-        config = get_config()
-        config.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(config.state_file, 'w') as f:
-            json.dump(self.state.to_dict(), f, indent=2)
-    
-    def load_state(self):
-        """Load state from disk."""
-        config = get_config()
-        if config.state_file.exists():
-            try:
-                with open(config.state_file) as f:
-                    data = json.load(f)
-                    self.state.command_history = data.get("command_history", [])
-                    self.state.logs = data.get("logs", [])
-                    self.state.saved_commands = data.get("saved_commands", [])
-            except Exception:
-                pass
+            await self.broadcast("saved_commands", saved_commands)
 
 
 # Singleton instance

@@ -137,9 +137,10 @@ class ServerConfig(BaseSettings):
     
     log_level: str = "INFO"
     log_file: Path = Path("~/.dev-orchestrator/logs/server.log").expanduser()
-    
+
     state_file: Path = Path("~/.dev-orchestrator/state.json").expanduser()
     config_file: Path = Path("~/.dev-orchestrator/config.json").expanduser()
+    db_file: Path = Path("~/.dev-orchestrator/data/state.db").expanduser()
     
     guardrails: GuardrailsConfig = Field(default_factory=GuardrailsConfig)
     

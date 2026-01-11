@@ -582,8 +582,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 async def run_mcp_server():
     """Run the MCP server."""
     init_executor()
-    state_manager.load_state()
-    
+    await state_manager.initialize_db()
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
